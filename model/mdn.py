@@ -5,7 +5,7 @@ class MDN2D(nn.Module):
         # an imgage has three channels
         # for videos, we have:
         # many images (clips) with 1 channel. This ends up with a saliency map for each clip, which is what we want!
-        # So, REPLACE 3 BY 1 IN THE COMPLETE LETWROK
+        # So, REPLACE 3 BY 1 IN THE COMPLETE NETWROK
         
         self.conv2fc = nn.Conv2d(3, hidden_size, (in_height, in_width))
         self.tanh = nn.Tanh()
