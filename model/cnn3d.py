@@ -16,6 +16,11 @@ class CNN3d(nn.Module):
         To do: Create the ResNext101 layers here
         '''
         self.inplanes = 64
+	## added for lstm
+	self.hidden_size=256
+	self.num_LSTM_Layers=1
+        self.batch_size = ???
+	##
         block = ResNeXtBottleneck
         # Convolutional layer 1
         self.conv1 = nn.Conv3d(3, 64, kernel_size=7, stride=(1, 2, 2),
@@ -28,6 +33,10 @@ class CNN3d(nn.Module):
         self.layer2 = self._make_layer(block, 256, 4, shortcut_type, cardinality, stride=2)
         self.layer3 = self._make_layer(block, 512, 23, shortcut_type, cardinality, stride=2)
         self.layer4 = self._make_layer(block, 1024, 3, shortcut_type, cardinality, stride=2)
+        # added for lstm
+	self.lstm = nn.LSTM(1024,self.hidden_size,self.num_LSTM_Layers)
+	self.hidden = self.init_hidden()
+        ##
 
         self.loadweights()
 
@@ -47,7 +56,10 @@ class CNN3d(nn.Module):
 
         x = self.avgpool(x)
 
-        # x = x.view(x.size(0), -1)
+        ## added for lstm
+        x = x.view(x.size(0), -1)
+        x, self.hidden = self.lstm(x, self.hidden)
+        ##
 
         return x
 
@@ -98,13 +110,20 @@ class CNN3d(nn.Module):
         """
         Save model with its parameters to the given path. Conventionally the
         path should end with "*.model".
-
         Inputs:
         - path: path string
         """
         print('Saving model... %s' % path)
         torch.save(self, path)
 
+    ## added for lstm
+    def init_hidden()
+        # the first is the hidden h
+        # the second is the cell  c
+        #(num_layers * num_directions, batch, hidden_size): tensor containing the hidden state for t=seq_len
+        return (autograd.Variable(torch.zeros(self.num_LSTM_Layers, self.batch_size, self.hidden_size)),
+                autograd.Variable(torch.zeros(self.num_LSTM_Layers, self.batch_size, self.hidden_size)))     
+    ##
 
 class ResNeXtBottleneck(nn.Module):
     expansion = 2
@@ -143,4 +162,4 @@ class ResNeXtBottleneck(nn.Module):
         out += residual
         out = self.relu(out)
 
-        return out
+return out
