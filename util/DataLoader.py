@@ -9,7 +9,7 @@ import torch
 
 class dataset():
     
-    def __init__(self, root, transform=None):
+    def __init__(self):
         #self.path=path # path to dataset
         self.FramesPerClip = 16
         self.stride = 1
