@@ -9,12 +9,14 @@ import torchvision as tv
 
 
 class CNN3d(nn.Module):
-    def __init__(self, shortcut_type='B', cardinality=32):
+    def __init__(self, model_path, shortcut_type='B', cardinality=32, sample_size=112, sample_duration=16, hidden_size=256,
+LSTM_layers=1):
         super(CNN3d, self).__init__()
 
-        '''
-        To do: Create the ResNext101 layers here
-        '''
+        self.model_path = model_path
+        self.hidden_size = hidden_size
+        self.LSTM_layers = LSTM_layers
+        
         self.inplanes = 64
         block = ResNeXtBottleneck
         # Convolutional layer 1
@@ -28,12 +30,21 @@ class CNN3d(nn.Module):
         self.layer2 = self._make_layer(block, 256, 4, shortcut_type, cardinality, stride=2)
         self.layer3 = self._make_layer(block, 512, 23, shortcut_type, cardinality, stride=2)
         self.layer4 = self._make_layer(block, 1024, 3, shortcut_type, cardinality, stride=2)
+        
+        last_duration = math.ceil(sample_duration / 16)
+        last_size = math.ceil(sample_size / 32)
+        self.avgpool = nn.AvgPool3d((last_duration, last_size, last_size), stride=1)
 
         self.loadweights()
+        
+        self.lstm = nn.LSTM(1024, self.hidden_size, self.LSTM_layers)
+        self.hidden0 = self.init_hidden()
+        
+        self.mdn = MDN1D()
 
     def forward(self, x):
         '''
-        To do: write forward path here
+        Note: Assumed batch size is 1 (1 video at a time, first dimension is # clips)!
         '''
         x = self.conv1(x)
         x = self.bn1(x)
@@ -47,8 +58,11 @@ class CNN3d(nn.Module):
 
         x = self.avgpool(x)
 
-        # x = x.view(x.size(0), -1)
-
+        x = x.view(x.size(0), 1, -1)
+        x, lasthidden = self.lstm(x, self.hidden0)
+        
+        x = self.mdn(x, x.size(2))
+        
         return x
 
     def _make_layer(self, block, planes, blocks, shortcut_type, cardinality, stride=1):
@@ -80,12 +94,10 @@ class CNN3d(nn.Module):
         pt_sd = pt_model['state_dict']
 
         for name, _ in state_dict.items():
-            # print(type(state_dict[name]))
-            # print(type(pt_sd['module.'+name]))
             assert state_dict[name].size() == pt_sd['module.' + name].size()
             state_dict[name] = pt_sd['module.' + name]
         self.load_state_dict(state_dict)
-        print('weights have been updated')
+        print('Weights have been updated!')
 
     @property
     def is_cuda(self):
@@ -104,6 +116,13 @@ class CNN3d(nn.Module):
         """
         print('Saving model... %s' % path)
         torch.save(self, path)
+        
+     def init_hidden(self)
+        # the first is the hidden h
+        # the second is the cell  c
+        #(num_layers * num_directions, batch, hidden_size): tensor containing the hidden state for t=seq_len
+        return (autograd.Variable(torch.zeros(self.LSTM_layers, self.batch_size, self.hidden_size)),
+                autograd.Variable(torch.zeros(self.LSTM_layers, self.batch_size, self.hidden_size))) 
 
 
 class ResNeXtBottleneck(nn.Module):
