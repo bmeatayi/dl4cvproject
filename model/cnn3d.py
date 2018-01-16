@@ -40,10 +40,10 @@ LSTM_layers=1):
 
         self.loadweights()
         
-        self.lstm = nn.LSTM(1024, self.hidden_size, self.LSTM_layers)
+        self.lstm = nn.LSTM(2048, self.hidden_size, self.LSTM_layers)
         self.hidden0 = self.init_hidden()
         
-        self.mdn = MDN1D()
+        self.mdn = MDN1D(input_dim=self.hidden_size)
 
     def forward(self, x):
         '''
@@ -60,11 +60,12 @@ LSTM_layers=1):
         x = self.layer4(x)
 
         x = self.avgpool(x)
-
+        
         x = x.view(x.size(0), 1, -1)
         x, lasthidden = self.lstm(x, self.hidden0)
         
-        x = self.mdn(x, x.size(2))
+        x = x.view(x.size(0), -1)
+        x = self.mdn(x)
         
         return x
 
