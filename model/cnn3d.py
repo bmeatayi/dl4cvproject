@@ -6,6 +6,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision as tv
+from torch.autograd import Variable
+import math
+from model.mdn import MDN1D
 
 
 class CNN3d(nn.Module):
@@ -90,7 +93,7 @@ LSTM_layers=1):
     def loadweights(self):
         print("Updating weights from ResNext...")
         state_dict = self.state_dict()
-        pt_model = torch.load('resnext-101-kinetics.pth')
+        pt_model = torch.load(self.model_path)
         pt_sd = pt_model['state_dict']
 
         for name, _ in state_dict.items():
@@ -117,12 +120,12 @@ LSTM_layers=1):
         print('Saving model... %s' % path)
         torch.save(self, path)
         
-     def init_hidden(self)
+    def init_hidden(self):
         # the first is the hidden h
         # the second is the cell  c
         #(num_layers * num_directions, batch, hidden_size): tensor containing the hidden state for t=seq_len
-        return (autograd.Variable(torch.zeros(self.LSTM_layers, self.batch_size, self.hidden_size)),
-                autograd.Variable(torch.zeros(self.LSTM_layers, self.batch_size, self.hidden_size))) 
+        return (Variable(torch.zeros(self.LSTM_layers, 1, self.hidden_size)),
+                Variable(torch.zeros(self.LSTM_layers, 1, self.hidden_size))) 
 
 
 class ResNeXtBottleneck(nn.Module):
