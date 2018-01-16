@@ -16,7 +16,6 @@ class MDN2D(nn.Module):
         # So, REPLACE 3 BY 1 IN THE COMPLETE NETWROK
         
         '''
-        
         Input
         '''
         
@@ -102,7 +101,6 @@ class MDN1D(nn.Module):
             out_sigma: variance of gaussians
             out_corr:  covariance of gaussians
         '''
-        
         out = self.lstm_fc(x)
         out = self.tanh(out)
         out_pi = self.pi_out(out)
