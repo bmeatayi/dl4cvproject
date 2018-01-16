@@ -83,4 +83,5 @@ class dataset():
         Fixations = arraysD[k]
         toc=time.clock()
         proc_time=toc-tic
-        rint(VideoName+' fixation data hase taken ',proc_time,'seconds to be loaded')
+        print(VideoName+' fixation data hase taken ',proc_time,'seconds to be loaded')
+	return Fixations['fixdata']
