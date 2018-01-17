@@ -137,3 +137,4 @@ if __name__ == '__main__':
 	(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model(x_data)
 	
 	print('MDN2D output example: ', out_pi)
+
