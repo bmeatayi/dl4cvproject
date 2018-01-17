@@ -1,6 +1,7 @@
 from scipy.stats import multivariate_normal
 import matplotlib.pyplot as plt
 import numpy as np
+from fixation_extraction import FixationLoader
 
 def _gen_meshgrid(x_min=0, x_max=1, y_min=0, y_max=1, res=0.01):
 
@@ -9,7 +10,6 @@ def _gen_meshgrid(x_min=0, x_max=1, y_min=0, y_max=1, res=0.01):
         - x_min, x_max: minimum and maximum x values
         - y_min, y_max: minimum and maximum y values
         - res: step size
-
     Output:
         - meshgrid
     '''
@@ -21,12 +21,11 @@ def _gen_meshgrid(x_min=0, x_max=1, y_min=0, y_max=1, res=0.01):
     return X, Y
 
 
-def _gen_gauss(fix_point, cov=((.005, 0), (0, .005))):
+def _gen_gauss(fix_point, cov=((.001, 0), (0, .001))):
 
     '''
     Input:
         - fix_point: a single fixation point
-
     Output:
         - A 2D gaussian around the fixation point
     '''
@@ -93,11 +92,14 @@ def vid_sal_map(fix_coor): # has the frame in first dimension
 
 
 if __name__ == '__main__':
+	
+	fix_obj = FixationLoader()
+	fixation_data = fix_obj.get_video_fixation('Data.mat')
+	Z = vid_sal_map(fixation_data[50:60, :, :])
+	print(Z.shape)
 
-    fixation_data = np.random.rand(3,30,2)
-    Z = vid_sal_map(fixation_data)
-
-    for i in Z:
-        plt.pcolor(i[:, :], cmap='gray')
-        plt.axes().set_aspect('equal')
-        plt.show()
+	for i in Z:
+		
+		plt.pcolor(i[:, :], cmap='gray')
+		plt.axes().set_aspect('equal')
+		plt.show()
