@@ -7,7 +7,7 @@ class FixationLoader():
         pass
     
     def get_datadotmat(self, filename):
-        DataMat = hdf5storage.loadmat('Data.mat')
+        DataMat = hdf5storage.loadmat(filename)
         Data = DataMat['Data'][0]
         VideoName = Data[0][0][0]
         VideoFramerate = Data[1][0][0]
@@ -86,24 +86,26 @@ class FixationLoader():
 
         fixation_ind = np.array(list_video_fix_ind)
         fixation_coor = np.array(list_video_fix_coor)
-
+        
         return fixation_ind, fixation_coor
     
     def _video_fixation(self, fixed_fixation, VideoFrames, VideoSize):
     
         final_fixation = np.zeros((int(VideoFrames), len(fixed_fixation), 2))  # frames x subject x 2
-
+        
         for frame_ind, frame in enumerate(final_fixation):   
             for subject_ind, subject in enumerate(frame):
-                final_fixation[frame_ind, subject_ind] = fixed_fixation[subject_ind][frame_ind] / VideoSize
-
+                if frame_ind < len(fixed_fixation[subject_ind]): 
+                # this condition is because some subject do not have fixation as much as framesize
+                    final_fixation[frame_ind, subject_ind] = fixed_fixation[subject_ind][frame_ind] / VideoSize
+                
         return final_fixation
     
     
     def get_video_fixation(self, filename=None):
         
         _, VideoFramerate, VideoFrames, VideoSize, fixdata = self.get_datadotmat(filename)
-
+        
         fixdata_sorted = self._sort_fixdata(fixdata)
 
         fixation_ind, fixation_coor = self._get_fixation_ind_coor(fixdata_sorted, VideoFramerate)
