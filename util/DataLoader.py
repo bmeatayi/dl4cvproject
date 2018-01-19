@@ -51,7 +51,7 @@ class dataset():
         ret = True
         while (fc < frameCount  and ret):   
             ret, frame_temp = cap.read()
-            frame=misc.imresize(buf_temp, [desired_height, desired_width], interp='cubic', mode=None)
+            frame=misc.imresize(frame_temp, [desired_height, desired_width], interp='cubic', mode=None)
             frame = torch.from_numpy(frame)
             buf[fc]=frame
             
