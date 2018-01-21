@@ -13,26 +13,43 @@ from model.mdn import MDN1D
 
 class CNN3d(nn.Module):
     def __init__(self, model_path, shortcut_type='B', cardinality=32, sample_size=112, sample_duration=16, hidden_size=256,
-LSTM_layers=1):
+LSTM_layers=1, freeze_cnn3d_weights = [True,True,True,True,True]):
         super(CNN3d, self).__init__()
 
         self.model_path = model_path
-        self.hidden_size = hidden_size
-        self.LSTM_layers = LSTM_layers
-        
+
         self.inplanes = 64
         block = ResNeXtBottleneck
-        # Convolutional layer 1
-        self.conv1 = nn.Conv3d(3, 64, kernel_size=7, stride=(1, 2, 2),
-                               padding=(3, 3, 3), bias=False)
+        
+        self.conv1 = nn.Conv3d(3, 64, kernel_size=7, stride=(1, 2, 2), padding=(3, 3, 3), bias=False)
         self.bn1 = nn.BatchNorm3d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool3d(kernel_size=(3, 3, 3), stride=2, padding=1)
-
+        if freeze_cnn3d_weights[0]:
+            for param in self.conv1.parameters():
+                param.requires_grad = False
+            for param in self.bn1.parameters():
+                param.requires_grad = False
+                
         self.layer1 = self._make_layer(block, 128, 3, shortcut_type, cardinality)
+        if freeze_cnn3d_weights[1]:
+            for param in self.layer1.parameters():
+                param.requires_grad = False
+                
         self.layer2 = self._make_layer(block, 256, 4, shortcut_type, cardinality, stride=2)
+        if freeze_cnn3d_weights[2]:
+            for param in self.layer2.parameters():
+                param.requires_grad = False
+        
         self.layer3 = self._make_layer(block, 512, 23, shortcut_type, cardinality, stride=2)
+        if freeze_cnn3d_weights[3]:
+            for param in self.layer3.parameters():
+                param.requires_grad = False
+                
         self.layer4 = self._make_layer(block, 1024, 3, shortcut_type, cardinality, stride=2)
+        if freeze_cnn3d_weights[4]:
+            for param in self.layer4.parameters():
+                param.requires_grad = False
         
         last_duration = math.ceil(sample_duration / 16)
         last_size = math.ceil(sample_size / 32)
@@ -40,11 +57,7 @@ LSTM_layers=1):
 
         self.loadweights()
         
-        self.lstm = nn.LSTM(2048, self.hidden_size, self.LSTM_layers)
-        self.hidden0 = self.init_hidden()
         
-        self.mdn = MDN1D(input_dim=self.hidden_size)
-
     def forward(self, x):
         '''
         Note: Assumed batch size is 1 (1 video at a time, first dimension is # clips)!
@@ -58,15 +71,8 @@ LSTM_layers=1):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-
         x = self.avgpool(x)
-        
-        x = x.view(x.size(0), 1, -1)
-        x, lasthidden = self.lstm(x, self.hidden0)
-        
-        x = x.view(x.size(0), -1)
-        x = self.mdn(x)
-        
+               
         return x
 
     def _make_layer(self, block, planes, blocks, shortcut_type, cardinality, stride=1):
@@ -103,32 +109,8 @@ LSTM_layers=1):
         self.load_state_dict(state_dict)
         print('Weights have been updated!')
 
-    @property
-    def is_cuda(self):
-        """
-        Check if model parameters are allocated on the GPU.
-        """
-        return next(self.parameters()).is_cuda
-
-    def save(self, path):
-        """
-        Save model with its parameters to the given path. Conventionally the
-        path should end with "*.model".
-
-        Inputs:
-        - path: path string
-        """
-        print('Saving model... %s' % path)
-        torch.save(self, path)
         
-    def init_hidden(self):
-        # the first is the hidden h
-        # the second is the cell  c
-        #(num_layers * num_directions, batch, hidden_size): tensor containing the hidden state for t=seq_len
-        return (Variable(torch.zeros(self.LSTM_layers, 1, self.hidden_size)),
-                Variable(torch.zeros(self.LSTM_layers, 1, self.hidden_size))) 
-
-
+    
 class ResNeXtBottleneck(nn.Module):
     expansion = 2
 

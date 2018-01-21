@@ -97,7 +97,7 @@ class Solver(object):
         - num_epochs: total number of training epochs
         - log_nth: log training accuracy and loss every nth iteration
         """
-        optim = self.optim(model.parameters(), **self.optim_args)
+        optim = self.optim(filter(lambda p: p.requires_grad, model.parameters()), **self.optim_args)
         self._reset_histories()
         iter_per_epoch = len(train_loader)
 

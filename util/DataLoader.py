@@ -4,6 +4,7 @@ import cv2
 import time
 import matplotlib.pylab
 from scipy import misc
+import torch.utils.data as data
 
 import os
 import torch
@@ -113,4 +114,4 @@ class dataset():
         toc=time.clock()
         proc_time=toc-tic
         print(VideoName+' fixation data hase taken ',proc_time,'seconds to be loaded')
-	return Fixations['fixdata']
+        return Fixations['fixdata']
