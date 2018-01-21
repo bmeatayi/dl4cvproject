@@ -56,7 +56,7 @@ class Solver(object):
 		result = result[:,:,:,0]**2 + result[:,:,:,1]**2 - 2*out_corr*result.prod(3)
 		result *= torch.reciprocal(out_sigma**2)
 		result *= -0.5 * torch.reciprocal(1-out_corr**2)
-		result = self.oneDivTwoPI * torch.reciprocal(torch.sqrt(1-out_corr**2)) * torch.exp(result)
+		result = self.oneDivTwoPI * torch.reciprocal(out_sigma**2) * torch.reciprocal(torch.sqrt(1-out_corr**2)) * torch.exp(result)
 
 		return result
 	
