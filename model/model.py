@@ -12,7 +12,7 @@ from model.cnn3d import CNN3d
 
 class VidSal(nn.Module):
     def __init__(self, model_path, hidden_size=256, LSTM_layers=1, freeze_cnn3d_weights =[True,True,True,True,True]):
-        super(CNN3d, self).__init__()
+        super(VidSal, self).__init__()
         
         self.hidden_size = hidden_size
         self.LSTM_layers = LSTM_layers
