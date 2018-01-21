@@ -7,6 +7,7 @@ from scipy import misc
 
 import os
 import torch
+import torch.utils.data as data
 
 class vidsalDataset(data.Dataset):
     """Dataset class for videos
