@@ -82,7 +82,14 @@ class Solver(object):
         result = torch.sum(result, dim=0)
         result = - torch.log(result)
 
-        return torch.mean(result)
+	# getting the mask to ignore fixation values with (0, 0) coordinate
+        mask0 = fix_data[:,:,0] != 0
+        mask1 = fix_data[:,:,1] != 0
+        masks = mask0 + mask1
+        mask = masks != 0
+        mask = mask.expand(KMIX, *mask.size())
+        
+        return torch.mean(result[mask])
 
 
 
