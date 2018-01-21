@@ -44,7 +44,7 @@ class VidSal(nn.Module):
         return (Variable(torch.zeros(self.LSTM_layers, 1, self.hidden_size)),
                 Variable(torch.zeros(self.LSTM_layers, 1, self.hidden_size)))
     
-        @property
+    @property
     def is_cuda(self):
         """
         Check if model parameters are allocated on the GPU.
