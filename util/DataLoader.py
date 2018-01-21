@@ -4,8 +4,37 @@ import cv2
 import time
 import matplotlib.pylab
 from scipy import misc
+
+import os
 import torch
 
+class vidsalDataset(data.Dataset):
+    """Dataset class for videos
+       Put video files in the folder /videos and fixation data  in the folder /groundtruth
+       
+    """
+    def __init__(self, dir_path):
+        self.dir_path_vid = dir_path + 'videos/'
+        self.dir_path_gt = dir_path + 'groundtruth/'
+        filelist = os.listdir(self.dir_path_vid)
+        
+        #Make sure that files other than videos are not included in the list
+        for file in filelist:
+            if file.startswith('.'):
+                filelist.remove(file)
+        self.filelist = filelist
+        
+        
+    def __len__(self):
+        return len(self.filelist)
+    
+    def __getitem__(self, idx):
+        vid_path = self.dir_path_vid + self.filelist[idx]
+        gt_path = self.dir_path_gt + self.filelist[idx]
+        vid = np.load(vid_path)
+        groundtruth = np.load(gt_path)
+        return vid,groundtruth
+    
 
 class dataset():
     
