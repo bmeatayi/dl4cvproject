@@ -3,7 +3,9 @@ import numpy as np
 #import cv2
 import time
 import matplotlib.pylab
-#from scipy import misc
+
+from scipy import misc
+import torch.utils.data as data
 
 import os
 import torch
