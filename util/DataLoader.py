@@ -1,13 +1,15 @@
-import hdf5storage
+#import hdf5storage
 import numpy as np
-import cv2
+#import cv2
 import time
 import matplotlib.pylab
+
 from scipy import misc
 import torch.utils.data as data
 
 import os
 import torch
+import torch.utils.data as data
 
 class vidsalDataset(data.Dataset):
     """Dataset class for videos
@@ -32,11 +34,30 @@ class vidsalDataset(data.Dataset):
     def __getitem__(self, idx):
         vid_path = self.dir_path_vid + self.filelist[idx]
         gt_path = self.dir_path_gt + self.filelist[idx]
-        vid = np.load(vid_path)
+        video = np.load(vid_path)
         groundtruth = np.load(gt_path)
-        return vid,groundtruth
+        
+        ##TO DO: split videos to clips
+        ##       Generate appropriate ground truth
+        
+        return self.split(video, groundtruth)
     
-
+    def split(self, video, groundtruth):
+        nClips = video.shape[0]-15
+        H = video.shape[1] #(Nframes, H,W,3)
+        W = video.shape[2]
+        nChan = video.shape[3]
+        nSubj = groundtruth.shape[1] #(Nf,Ns,2)
+        
+        clips = np.zeros((nClips,nChan,16,H,W))
+        fixations = np.zeros((nClips,nSubj,2))
+        for i in range(nClips):
+            clips[i,:,:,:,:] = np.rollaxis(video[i:i+16,:,:,:],3)
+            fixations[i,:,:] = groundtruth[i+15,:,:]
+        return clips,fixations
+            
+            
+'''
 class dataset():
     
     def __init__(self):
@@ -115,3 +136,4 @@ class dataset():
         proc_time=toc-tic
         print(VideoName+' fixation data hase taken ',proc_time,'seconds to be loaded')
         return Fixations['fixdata']
+'''
