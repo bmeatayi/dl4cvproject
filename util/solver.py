@@ -39,7 +39,7 @@ class Solver(object):
         
 
     def _gaussian_distribution2d(self, out_mu_x, out_mu_y, out_sigma, out_corr, fix_data):
-    
+        #print(fix_data.size())
         nFrames, nFixs,_ = fix_data.size()
         KMIX = out_mu_x.size(1)
         # combine x and y mean values
@@ -111,45 +111,51 @@ class Solver(object):
         if torch.cuda.is_available():
             model.cuda()
 
-            print('START TRAIN.')
+        print('START TRAIN.')
 
-            nIterations = num_epochs*iter_per_epoch
+        nIterations = num_epochs*iter_per_epoch
 
 
-            for i in range(num_epochs):
-                for j, (inputs, labels) in enumerate(train_loader, 0):
+        for i in range(num_epochs):
+            for j, (inputs, labels) in enumerate(train_loader, 1):
+                # I don't know why the dataloader gives double tensors!
+                inputs = inputs.float()
+                labels = labels.float()
+                it = i*iter_per_epoch + j
+                inputs = inputs.squeeze(dim=0)
+                labels = labels.squeeze(dim=0)
+                inputs = Variable(inputs)
+                labels = Variable(labels)
+                if model.is_cuda:
+                    inputs, labels = inputs.cuda(), labels.cuda()
+                
+                (out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model(inputs)
+                loss = self.mdn_loss_function(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, labels)
+                if it%log_nth==0:
+                    print('[Iteration %i/%i] TRAIN loss: %f' % (it,nIterations,loss))
+                    self.train_loss_history.append(loss)
 
-                    it = i*iter_per_epoch + j
-
-                    inputs = Variable(inputs)
-                    labels = Variable(labels)
-                    (out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model(x_train)
-                    loss = self.mdn_loss_function(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, y_train)
-                    if it%log_nth==0:
-                        print('[Iteration %i/%i] TRAIN loss: %f' % (it,nIterations,loss))
-                        self.train_loss_history.append(loss)
-
-                        optim.zero_grad()
-                        loss.backward()
-                        optim.step()
+                    optim.zero_grad()
+                    loss.backward()
+                    optim.step()
 
                         #train_acc = (np.squeeze(np.array(max_index)) == np.squeeze(np.array(labels))).mean()
                         #self.train_acc_history.append(train_acc)
 
-                        inputs_val = Variable(torch.from_numpy(val_loader.dataset.X))
-                        labels_val = Variable(torch.from_numpy(val_loader.dataset.y))
-                        (out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model.forward(inputs_val)
-                        loss_val = self.mdn_loss_function(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, y_train)
-
+                    inputs_val = Variable(torch.from_numpy(val_loader.dataset.X))
+                    labels_val = Variable(torch.from_numpy(val_loader.dataset.y))
+                    (out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model.forward(inputs_val)
+                    loss_val = self.mdn_loss_function(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, labels)
+                    
                         #val_acc = (np.squeeze(np.array(max_index_val)) == np.squeeze(np.array(labels_val))).mean()
                         #self.val_acc_history.append(val_acc)
                         #print('[Epoch %i/%i] TRAIN acc/loss: %f/%f' % (i,num_epochs,train_acc, loss))
                         #print('[Epoch %i/%i] VAL acc/loss: %f/%f' % (i,num_epochs,val_acc, loss_val))
-                        print('[Epoch %i/%i] TRAIN loss: /%f' % (i,num_epochs,loss))
-                        print('[Epoch %i/%i] VAL loss: %f' % (i,num_epochs,loss_val))
+                        
+                    print('[Epoch %i/%i] TRAIN loss: /%f' % (i,num_epochs,loss))
+                    print('[Epoch %i/%i] VAL loss: %f' % (i,num_epochs,loss_val))
 
-
-            print('FINISH.')
+        print('FINISH.')
         
         
         
