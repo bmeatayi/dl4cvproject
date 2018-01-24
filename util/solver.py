@@ -87,6 +87,7 @@ class Solver(object):
         mask1 = fix_data[:,:,1] != 0
         masks = mask0 + mask1
         mask = masks != 0
+	KMIX = out_mu_x.size(1)
         mask = mask.expand(KMIX, *mask.size())
         
         return torch.mean(result[mask])
