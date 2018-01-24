@@ -22,7 +22,7 @@ class Solver(object):
         optim_args_merged.update(optim_args)
         self.optim_args = optim_args_merged
         self.optim = optim
-
+        self.init_lr = self.optim_args['lr']
         self.oneDivSqrtTwoPI = 1.0 / math.sqrt(2.0*math.pi) # normalisation factor for gaussian.
         self.oneDivTwoPI = 1.0 / (2.0*math.pi)
         
@@ -93,7 +93,7 @@ class Solver(object):
 
 
 
-    def train(self, model, train_loader, val_loader, num_epochs=10, log_nth=0):
+    def train(self, model, train_loader, val_loader, num_epochs=10, log_nth=0, n_decay_epoch=None,decay_factor=0.1):
         """
         Train a given model with the provided data.
 
@@ -104,6 +104,8 @@ class Solver(object):
         - num_epochs: total number of training epochs
         - log_nth: log training accuracy and loss every nth iteration
         """
+        self.n_decay_epoch = n_decay_epoch
+        self.decay_factor = decay_factor
         optim = self.optim(filter(lambda p: p.requires_grad, model.parameters()), **self.optim_args)
         self._reset_histories()
         iter_per_epoch = len(train_loader)
@@ -154,8 +156,21 @@ class Solver(object):
                         
                     print('[Epoch %i/%i] TRAIN loss: /%f' % (i,num_epochs,loss))
                     print('[Epoch %i/%i] VAL loss: %f' % (i,num_epochs,loss_val))
-
+                    if self.n_decay_epoch is not None:
+                        optim = self.decay_lr(self, i, optim)
         print('FINISH.')
+        
+    def decay_lr(self, epoch, optimizer):
+        """Decay learning rate by a factor of decay_factor every n_decay_epoch epochs."""
+        if epoch % lr_decay_epoch == 0:
+            lr = self.init_lr * (self.decay_factor**(epoch // self.n_decay_epoch))
+            print('Learning rate is set to {}'.format(lr))
+            params = optimizer.state_dict()
+            params['lr'] = lr
+            optimizer.load_state_dict(params)
+
+        return optimizer
+        
         
         
         
