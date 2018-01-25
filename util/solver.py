@@ -87,9 +87,9 @@ class Solver(object):
         mask1 = fix_data[:,:,1] != 0
         masks = mask0 + mask1
         mask = masks != 0
-	KMIX = out_mu_x.size(1)
+        KMIX = out_mu_x.size(1)
         mask = mask.expand(KMIX, *mask.size())
-        
+        #print(mask.size())
         return torch.mean(result[mask])
 
 
@@ -119,7 +119,7 @@ class Solver(object):
         nIterations = num_epochs*iter_per_epoch
 
 
-        for i in range(num_epochs):
+        for i in range(1,num_epochs+1):
             for j, (inputs, labels) in enumerate(train_loader, 1):
                 # I don't know why the dataloader gives double tensors!
                 inputs = inputs.float()
@@ -134,31 +134,43 @@ class Solver(object):
                 
                 (out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model(inputs)
                 loss = self.mdn_loss_function(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, labels)
+                optim.zero_grad()
+                loss.backward()
+                optim.step()
+                
                 if it%log_nth==0:
-                    print('[Iteration %i/%i] TRAIN loss: %f' % (it,nIterations,loss))
-                    self.train_loss_history.append(loss)
+                    print('[Iteration %i/%i] TRAIN loss: %f' % (it,nIterations,loss.data.cpu().numpy()))
+                    self.train_loss_history.append(loss.data.cpu().numpy())
 
-                    optim.zero_grad()
-                    loss.backward()
-                    optim.step()
-
-                        #train_acc = (np.squeeze(np.array(max_index)) == np.squeeze(np.array(labels))).mean()
-                        #self.train_acc_history.append(train_acc)
-
-                    inputs_val = Variable(torch.from_numpy(val_loader.dataset.X))
-                    labels_val = Variable(torch.from_numpy(val_loader.dataset.y))
-                    (out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model.forward(inputs_val)
-                    loss_val = self.mdn_loss_function(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, labels)
+                    ####################################################### 
+                    # To do: NSS score can be computed and reported here!
+                    #
+                    #
+                    #######################################################
                     
-                        #val_acc = (np.squeeze(np.array(max_index_val)) == np.squeeze(np.array(labels_val))).mean()
-                        #self.val_acc_history.append(val_acc)
-                        #print('[Epoch %i/%i] TRAIN acc/loss: %f/%f' % (i,num_epochs,train_acc, loss))
-                        #print('[Epoch %i/%i] VAL acc/loss: %f/%f' % (i,num_epochs,val_acc, loss_val))
+                    # Validation set
+                    val_losses = []
+                    model.eval()   #Set model state to evaluation 
+                    
+                    for ii,(inputs, labels) in enumerate(val_loader, 1):
+                        # I don't know why the dataloader gives double tensors!
+                        inputs, labels = Variable(inputs.float().squeeze(dim=0)),Variable(labels.float().squeeze(dim=0))
                         
-                    print('[Epoch %i/%i] TRAIN loss: /%f' % (i,num_epochs,loss))
-                    print('[Epoch %i/%i] VAL loss: %f' % (i,num_epochs,loss_val))
+                        if model.is_cuda:
+                            inputs, labels = inputs.cuda(), labels.cuda()
+
+                        (out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model.forward(inputs)
+                        loss_val = self.mdn_loss_function(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, labels)
+                        val_losses.append(loss_val.data.cpu().numpy())
+                       
+                    print('[Epoch %i/%i] TRAIN loss: /%f' % (i,num_epochs,loss.data.cpu().numpy()))
+                    print('[Epoch %i/%i] VAL loss: %f' % (i,num_epochs,np.mean(val_losses)))
+                    
+                    model.train() #Set model state to training
+                    
                     if self.n_decay_epoch is not None:
                         optim = self.decay_lr(self, i, optim)
+                        
         print('FINISH.')
         
     def decay_lr(self, epoch, optimizer):
