@@ -168,8 +168,8 @@ class Solver(object):
                     
                     model.train() #Set model state to training
                     
-                    if self.n_decay_epoch is not None:
-                        optim = self.decay_lr(self, i, optim)
+	    if self.n_decay_epoch is not None:
+		optim = self.decay_lr(self, i, optim)
                         
         print('FINISH.')
         
