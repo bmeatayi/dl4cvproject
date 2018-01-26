@@ -92,49 +92,49 @@ class Solver(object):
         return torch.mean(result[mask])
 
 
-    def NSS_score(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, fix_data):
-	'''
-	Input:
+    def NSS_score(self, out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, fix_data):
+        '''
+        Input:
             - out_pi, out_mu_x, out_mu_y, out_sigma, out_corr : Gaussians parameters
             - fix_data : Ground truth fixation data
-            
+
         Output:
             - NSS Score for each of the clips
-        
         '''
-	
-	xGrid, yGrid = np.mishgrid(np.linspace(1, 112, 112), np.linspace(1, 112, 112))
-	map_locations = np.zeros([112*112, 2])
-	map_locations[:,0] = xGrid.reshape(112*112)
-	map_locations[:,1] = yGrid.reshape(112*112)
-	map_locations = Variable(torch.from_numpy(map_locations), requires_grad=False)
 
-	N = out_pi.size(0)
-	map_locations = map_locations.expand(N, *map_locations.size())
-	sal_results = self._gaussian_distribution2d(out_mu_x, out_mu_y, out_sigma, out_corr, map_locations)
-	out_pi_all = out_pi.expand(112*112, *out_pi.size())
-        out_pi_all = out_pi.contiguous().view(sal_results.size())
-	sal_results = sal_results*out_pi_all
-	sal_results = torch.sum(sal_results, dim=0)
+        xGrid, yGrid = np.meshgrid(np.linspace(1, 112, 112), np.linspace(1, 112, 112))
+        map_locations = np.zeros([112*112, 2])
+        map_locations[:,0] = xGrid.reshape(112*112)
+        map_locations[:,1] = yGrid.reshape(112*112)
+        map_locations = np.float32(map_locations)
+        map_locations = Variable(torch.from_numpy(map_locations), requires_grad=False)
 
-	sal_results_mean = torch.mean(sal_results, dim=1)
-	sal_results_mean = sal_results_mean.view(*sal_results_mean.size(), 1)
-	sal_results_std = torch.std(sal_results, dim=1)
-	sal_results_std = sal_results_std.view(*sal_results_std.size(), 1)
+        N = out_pi.size(0)
+        map_locations = map_locations.expand(N, *map_locations.size())
+        sal_results = self._gaussian_distribution2d(out_mu_x, out_mu_y, out_sigma, out_corr, map_locations)
+        out_pi_all = out_pi.expand(112*112, *out_pi.size())
+        out_pi_all = out_pi_all.contiguous().view(sal_results.size())
+        sal_results = sal_results*out_pi_all
+        sal_results = torch.sum(sal_results, dim=0)
 
-	sal_results_fix = self._gaussian_distribution2d(out_mu_x, out_mu_y, out_sigma, out_corr, fix_data)
-	nFix = sal_results_fix.size(-1)
-	out_pi_fix = out_pi.expand(nFix, *out_pi.size())
-        out_pi_fix = out_pi.contiguous().view(sal_results_fix.size())
-	sal_results_fix = sal_results_fix*out_pi_fix
-	sal_results_fix = torch.sum(sal_results_fix, dim=0)
+        sal_results_mean = torch.mean(sal_results, dim=1)
+        sal_results_mean = sal_results_mean.view(*sal_results_mean.size(), 1)
+        sal_results_std = torch.std(sal_results, dim=1)
+        sal_results_std = sal_results_std.view(*sal_results_std.size(), 1)
 
-	sal_results_mean = sal_results_mean.exapnd_as(sal_results_fix)
-	sal_results_std = sal_results_std.exapnd_as(sal_results_fix)
+        sal_results_fix = self._gaussian_distribution2d(out_mu_x, out_mu_y, out_sigma, out_corr, fix_data)
+        nFix = sal_results_fix.size(-1)
+        out_pi_fix = out_pi.expand(nFix, *out_pi.size())
+        out_pi_fix = out_pi_fix.contiguous().view(sal_results_fix.size())
+        sal_results_fix = sal_results_fix*out_pi_fix
+        sal_results_fix = torch.sum(sal_results_fix, dim=0)
 
-	sal_results_norm = torch.div(sal_results_fix-sal_results_mean, sal_results_std)
+        sal_results_mean = sal_results_mean.expand_as(sal_results_fix)
+        sal_results_std = sal_results_std.expand_as(sal_results_fix)
 
-	return torch.mean(sal_results_norm, dim=1)
+        sal_results_norm = torch.div(sal_results_fix-sal_results_mean, sal_results_std)
+
+        return torch.mean(sal_results_norm, dim=1)
 
 
     def train(self, model, train_loader, val_loader, num_epochs=10, log_nth=0):
