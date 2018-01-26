@@ -29,11 +29,15 @@ class VidSal(nn.Module):
         '''
         Note: Assumed batch size is 1 (1 video at a time, first dimension is # clips)!
         '''
+        #print('input size:',x.size())
         x = self.cnn3d(x)
+        #print('size after cnn3d:',x.size())
         x = x.view(x.size(0), 1, -1)
-        x, lasthidden = self.lstm(x, self.hidden0)
+        #print('size of lstm input:',x.size())
+        x, lasthidden = self.lstm(x)#, self.hidden0)
         x = x.view(x.size(0), -1)
         x = self.mdn(x)
+        #print(x)
         
         return x
     
@@ -41,8 +45,8 @@ class VidSal(nn.Module):
         # the first is the hidden h
         # the second is the cell  c
         #(num_layers * num_directions, batch, hidden_size): tensor containing the hidden state for t=seq_len
-        return (Variable(torch.zeros(self.LSTM_layers, 1, self.hidden_size)),
-                Variable(torch.zeros(self.LSTM_layers, 1, self.hidden_size)))
+        return (Variable(torch.zeros(self.LSTM_layers, 1, self.hidden_size)).cuda(),
+                Variable(torch.zeros(self.LSTM_layers, 1, self.hidden_size)).cuda())
     
     @property
     def is_cuda(self):

@@ -34,13 +34,14 @@ class vidsalDataset(data.Dataset):
     def __getitem__(self, idx):
         vid_path = self.dir_path_vid + self.filelist[idx]
         gt_path = self.dir_path_gt + self.filelist[idx]
+        #print(vid_path)
         video = np.load(vid_path)
         groundtruth = np.load(gt_path)
         
         ##TO DO: split videos to clips
         ##       Generate appropriate ground truth
-        
-        return self.split(video, groundtruth)
+        clips,fixations = self.split(video, groundtruth)
+        return clips,fixations
     
     def split(self, video, groundtruth):
         nClips = video.shape[0]-15
