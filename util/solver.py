@@ -8,9 +8,6 @@ import math
 
 
 class Solver(object):
-    '''
-    TO DO: have a measure for performance over time such as NSS or MSE to observe behavior on validation data
-    '''
 
     default_adam_args = {"lr": 1e-4,
         "betas": (0.9, 0.999),
@@ -22,7 +19,7 @@ class Solver(object):
         optim_args_merged.update(optim_args)
         self.optim_args = optim_args_merged
         self.optim = optim
-
+        self.init_lr = self.optim_args['lr']
         self.oneDivSqrtTwoPI = 1.0 / math.sqrt(2.0*math.pi) # normalisation factor for gaussian.
         self.oneDivTwoPI = 1.0 / (2.0*math.pi)
         
@@ -30,16 +27,16 @@ class Solver(object):
 
     def _reset_histories(self):
         """
-        Resets train and val histories for the accuracy and the loss.
+        Resets train and val histories for the NSS and the loss.
         """
         self.train_loss_history = []
-        self.train_acc_history = []
-        self.val_acc_history = []
+        self.train_NSS_history = []
+        self.val_NSS_history = []
         self.val_loss_history = []
         
 
     def _gaussian_distribution2d(self, out_mu_x, out_mu_y, out_sigma, out_corr, fix_data):
-    
+        #print(fix_data.size())
         nFrames, nFixs,_ = fix_data.size()
         KMIX = out_mu_x.size(1)
         # combine x and y mean values
@@ -64,7 +61,7 @@ class Solver(object):
 
     def mdn_loss_function(self, out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, fix_data):
         '''
-        Input:
+        input:
             - out_pi, out_mu_x, out_mu_y, out_sigma, out_corr : Gaussians parameters
             - fix_data : Ground truth fixation data
             
@@ -87,8 +84,9 @@ class Solver(object):
         mask1 = fix_data[:,:,1] != 0
         masks = mask0 + mask1
         mask = masks != 0
+        KMIX = out_mu_x.size(1)
         mask = mask.expand(KMIX, *mask.size())
-        
+        #print(mask.size())
         return torch.mean(result[mask])
 
 
@@ -137,7 +135,7 @@ class Solver(object):
         return torch.mean(sal_results_norm, dim=1)
 
 
-    def train(self, model, train_loader, val_loader, num_epochs=10, log_nth=0):
+    def train(self, model, train_loader, val_loader, num_epochs=10, log_nth=0, n_decay_epoch=None,decay_factor=0.1):
         """
         Train a given model with the provided data.
 
@@ -148,52 +146,88 @@ class Solver(object):
         - num_epochs: total number of training epochs
         - log_nth: log training accuracy and loss every nth iteration
         """
-        optim = self.optim(model.parameters(), **self.optim_args)
+        self.n_decay_epoch = n_decay_epoch
+        self.decay_factor = decay_factor
+        optim = self.optim(filter(lambda p: p.requires_grad, model.parameters()), **self.optim_args)
         self._reset_histories()
         iter_per_epoch = len(train_loader)
 
         if torch.cuda.is_available():
             model.cuda()
 
-            print('START TRAIN.')
+        print('START TRAIN.')
 
-            nIterations = num_epochs*iter_per_epoch
-
-
-            for i in range(num_epochs):
-                for j, (inputs, labels) in enumerate(train_loader, 0):
-
-                    it = i*iter_per_epoch + j
-
-                    inputs = Variable(inputs)
-                    labels = Variable(labels)
-                    (out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model(x_train)
-                    loss = self.mdn_loss_function(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, y_train)
-                    if it%log_nth==0:
-                        print('[Iteration %i/%i] TRAIN loss: %f' % (it,nIterations,loss))
-                        self.train_loss_history.append(loss)
-
-                        optim.zero_grad()
-                        loss.backward()
-                        optim.step()
-
-                        #train_acc = (np.squeeze(np.array(max_index)) == np.squeeze(np.array(labels))).mean()
-                        #self.train_acc_history.append(train_acc)
-
-                        inputs_val = Variable(torch.from_numpy(val_loader.dataset.X))
-                        labels_val = Variable(torch.from_numpy(val_loader.dataset.y))
-                        (out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model.forward(inputs_val)
-                        loss_val = self.mdn_loss_function(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, y_train)
-
-                        #val_acc = (np.squeeze(np.array(max_index_val)) == np.squeeze(np.array(labels_val))).mean()
-                        #self.val_acc_history.append(val_acc)
-                        #print('[Epoch %i/%i] TRAIN acc/loss: %f/%f' % (i,num_epochs,train_acc, loss))
-                        #print('[Epoch %i/%i] VAL acc/loss: %f/%f' % (i,num_epochs,val_acc, loss_val))
-                        print('[Epoch %i/%i] TRAIN loss: /%f' % (i,num_epochs,loss))
-                        print('[Epoch %i/%i] VAL loss: %f' % (i,num_epochs,loss_val))
+        nIterations = num_epochs*iter_per_epoch
 
 
-            print('FINISH.')
+        for i in range(1,num_epochs+1):
+            for j, (inputs, labels) in enumerate(train_loader, 1):
+                # I don't know why the dataloader gives double tensors!
+                inputs = inputs.float()
+                labels = labels.float()
+                it = i*iter_per_epoch + j
+                inputs = inputs.squeeze(dim=0)
+                labels = labels.squeeze(dim=0)
+                inputs = Variable(inputs)
+                labels = Variable(labels)
+                if model.is_cuda:
+                    inputs, labels = inputs.cuda(), labels.cuda()
+                
+                outputs = model(inputs)
+                loss = self.mdn_loss_function(*outputs, labels)
+                print('[Iteration %i/%i] TRAIN loss: %f' % (it,nIterations,loss.data.cpu().numpy()))
+                optim.zero_grad()
+                loss.backward()
+                optim.step()
+                
+                if it%log_nth==0:
+                    
+                    self.train_loss_history.append(loss.data.cpu().numpy())
+
+                    train_NSS = self.NSS_score(*outputs, labels)
+                    self.train_NSS_history.append(train_NSS.data.cpu().numpy())                    
+
+                    # Validation set
+                    val_losses = []
+                    val_NSS_Scores = []
+                    model.eval()   #Set model state to evaluation 
+                    
+                    for ii,(inputs, labels) in enumerate(val_loader, 1):
+                        # I don't know why the dataloader gives double tensors!
+                        inputs, labels = Variable(inputs.float().squeeze(dim=0)),Variable(labels.float().squeeze(dim=0))
+                        
+                        if model.is_cuda:
+                            inputs, labels = inputs.cuda(), labels.cuda()
+
+                        outputs = model.forward(inputs)
+                        loss_val = self.mdn_loss_function(*outputs, labels)
+                        val_losses.append(loss_val.data.cpu().numpy())
+                        
+                        val_NSS = self.NSS_score(*outputs, labels)
+                        val_NSS_Scores.append(val_NSS.data.cpu().numpy())
+                    
+                    self.val_NSS_history.append(np.mean(val_NSS_Scores))
+                    print('[Epoch %i/%i] TRAIN NSS/loss: /%f' % (i, num_epochs, train_NSS.data.cpu().numpy(), loss.data.cpu().numpy()))
+                    print('[Epoch %i/%i] VAL NSS/loss: %f' % (i, num_epochs, np.mean(val_NSS_Scores), np.mean(val_losses)))
+                    
+                    model.train() #Set model state to training
+                    
+            if self.n_decay_epoch is not None:
+                optim = self.decay_lr(self, i, optim)
+                        
+        print('FINISH.')
+        
+    def decay_lr(self, epoch, optimizer):
+        """Decay learning rate by a factor of decay_factor every n_decay_epoch epochs."""
+        if epoch % lr_decay_epoch == 0:
+            lr = self.init_lr * (self.decay_factor**(epoch // self.n_decay_epoch))
+            print('Learning rate is set to {}'.format(lr))
+            params = optimizer.state_dict()
+            params['lr'] = lr
+            optimizer.load_state_dict(params)
+
+        return optimizer
+        
         
         
         
