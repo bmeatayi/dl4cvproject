@@ -9,13 +9,28 @@ class FixationLoader():
     def get_datadotmat(self, filename):
         DataMat = hdf5storage.loadmat(filename)
         Data = DataMat['Data'][0]
-        VideoName = Data[0][0][0]
-        VideoFramerate = Data[1][0][0]
-        VideoFrames = Data[2][0][0]
-        VideoSize = Data[3][0]
-        fixdata = Data[4]
+        VideoName = Data[Data.dtype.names[0]]
+        VideoName = self.unfold_data(VideoName)
+        VideoFramerate = Data[Data.dtype.names[1]]
+        VideoFramerate = self.unfold_data(VideoFramerate)
+        VideoFrames = Data[Data.dtype.names[2]]
+        VideoFrames = self.unfold_data(VideoFrames)
+        VideoSize = Data[Data.dtype.names[3]]
+        VideoSize = self.unfold_data(VideoSize)
+        fixdata = Data[Data.dtype.names[4]]
+        fixdata = self.unfold_fixdata(fixdata)
 
         return VideoName, VideoFramerate, VideoFrames, VideoSize, fixdata
+    
+    def unfold_data(self,info):
+        while (type(info) == np.ndarray):
+            info = info[0]
+        return info    
+     
+    def unfold_fixdata(self,info):
+        while (info.shape[0] == 1):
+            info = info[0]
+        return info
     
     def _sort_fixdata(self, data):
         data = np.array(sorted(data, key=lambda  l:l[0]))
@@ -118,10 +133,3 @@ class FixationLoader():
         final_fixation = self._video_fixation(fixed_fixation, VideoFrames, VideoSize)
         
         return final_fixation
-		
-		
-if __name__ == '__main__':
-
-	fix_obj = FixationLoader()
-	fixation_data = fix_obj.get_video_fixation('Data.mat')
-	print(fixation_data.shape)
