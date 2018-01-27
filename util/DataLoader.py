@@ -1,12 +1,64 @@
-import hdf5storage
+#import hdf5storage
 import numpy as np
-import cv2
+#import cv2
 import time
 import matplotlib.pylab
+
 from scipy import misc
+import torch.utils.data as data
+
+import os
 import torch
+import torch.utils.data as data
 
-
+class vidsalDataset(data.Dataset):
+    """Dataset class for videos
+       Put video files in the folder /videos and fixation data  in the folder /groundtruth
+       
+    """
+    def __init__(self, dir_path):
+        self.dir_path_vid = dir_path + 'videos/'
+        self.dir_path_gt = dir_path + 'groundtruth/'
+        filelist = os.listdir(self.dir_path_vid)
+        
+        #Make sure that files other than videos are not included in the list
+        for file in filelist:
+            if file.startswith('.'):
+                filelist.remove(file)
+        self.filelist = filelist
+        
+        
+    def __len__(self):
+        return len(self.filelist)
+    
+    def __getitem__(self, idx):
+        vid_path = self.dir_path_vid + self.filelist[idx]
+        gt_path = self.dir_path_gt + self.filelist[idx]
+        #print(vid_path)
+        video = np.load(vid_path)
+        groundtruth = np.load(gt_path)
+        
+        ##TO DO: split videos to clips
+        ##       Generate appropriate ground truth
+        clips,fixations = self.split(video, groundtruth)
+        return clips,fixations
+    
+    def split(self, video, groundtruth):
+        nClips = video.shape[0]-15
+        H = video.shape[1] #(Nframes, H,W,3)
+        W = video.shape[2]
+        nChan = video.shape[3]
+        nSubj = groundtruth.shape[1] #(Nf,Ns,2)
+        
+        clips = np.zeros((nClips,nChan,16,H,W))
+        fixations = np.zeros((nClips,nSubj,2))
+        for i in range(nClips):
+            clips[i,:,:,:,:] = np.rollaxis(video[i:i+16,:,:,:],3)
+            fixations[i,:,:] = groundtruth[i+15,:,:]
+        return clips,fixations
+            
+            
+'''
 class dataset():
     
     def __init__(self):
@@ -84,4 +136,5 @@ class dataset():
         toc=time.clock()
         proc_time=toc-tic
         print(VideoName+' fixation data hase taken ',proc_time,'seconds to be loaded')
-	return Fixations['fixdata']
+        return Fixations['fixdata']
+'''

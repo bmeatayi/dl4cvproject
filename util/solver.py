@@ -163,7 +163,8 @@ class Solver(object):
         nIterations = num_epochs*iter_per_epoch
 
 
-        for i in range(num_epochs):
+
+        for i in range(1,num_epochs+1):
             for j, (inputs, labels) in enumerate(train_loader, 1):
                 # I don't know why the dataloader gives double tensors!
                 inputs = inputs.float()
@@ -179,12 +180,12 @@ class Solver(object):
                 outputs = model(inputs)
                 loss = self.mdn_loss_function(*outputs, labels)
                 print('[Iteration %i/%i] TRAIN loss: %f' % (it,nIterations,loss.data.cpu().numpy()))
+
                 optim.zero_grad()
                 loss.backward()
                 optim.step()
                 
-                if it%log_nth==0:
-                    
+                if it%log_nth==0:                    
                     self.train_loss_history.append(loss.data.cpu().numpy())
 
                     train_NSS = self.NSS_score(*outputs, labels)
@@ -194,6 +195,7 @@ class Solver(object):
                     # Validation set
                     val_losses = []
                     val_NSS_Scores = []
+
                     model.eval()   #Set model state to evaluation 
                     
                     for ii,(inputs, labels) in enumerate(val_loader, 1):
@@ -215,9 +217,10 @@ class Solver(object):
                     print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i+1, num_epochs, np.mean(val_NSS_Scores), np.mean(val_losses)))
                     
                     model.train() #Set model state to training
-                    
-            if self.n_decay_epoch is not None:
-                optim = self.decay_lr(self, i, optim)
+
+	    if self.n_decay_epoch is not None:
+        optim = self.decay_lr(self, i, optim)
+
                         
         print('FINISH.')
         
