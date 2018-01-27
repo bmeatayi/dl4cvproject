@@ -101,11 +101,14 @@ class Solver(object):
         '''
 
         xGrid, yGrid = np.meshgrid(np.linspace(1, 112, 112), np.linspace(1, 112, 112))
-        map_locations = np.zeros([112*112, 2])
-        map_locations[:,0] = xGrid.reshape(112*112)
-        map_locations[:,1] = yGrid.reshape(112*112)
-        map_locations = np.float32(map_locations)
-        map_locations = Variable(torch.from_numpy(map_locations), requires_grad=False)
+        map_locations = torch.zeros(112*112, 2)
+        xGrid = xGrid.reshape(112*112).astype(np.float32)
+        yGrid = yGrid.reshape(112*112).astype(np.float32)
+        map_locations[:,0] = torch.from_numpy(xGrid.copy())
+        map_locations[:,1] = torch.from_numpy(xGrid.copy())
+        map_locations = Variable(map_locations, requires_grad=False)
+        if torch.cuda.is_available():
+            map_locations = map_locations.cuda()
 
         N = out_pi.size(0)
         map_locations = map_locations.expand(N, *map_locations.size())
@@ -160,7 +163,7 @@ class Solver(object):
         nIterations = num_epochs*iter_per_epoch
 
 
-        for i in range(1,num_epochs+1):
+        for i in range(num_epochs):
             for j, (inputs, labels) in enumerate(train_loader, 1):
                 # I don't know why the dataloader gives double tensors!
                 inputs = inputs.float()
@@ -185,7 +188,8 @@ class Solver(object):
                     self.train_loss_history.append(loss.data.cpu().numpy())
 
                     train_NSS = self.NSS_score(*outputs, labels)
-                    self.train_NSS_history.append(train_NSS.data.cpu().numpy())                    
+                    train_NSS = np.mean(train_NSS.data.cpu().numpy())
+                    self.train_NSS_history.append(train_NSS)                    
 
                     # Validation set
                     val_losses = []
@@ -204,11 +208,11 @@ class Solver(object):
                         val_losses.append(loss_val.data.cpu().numpy())
                         
                         val_NSS = self.NSS_score(*outputs, labels)
-                        val_NSS_Scores.append(val_NSS.data.cpu().numpy())
+                        val_NSS_Scores.append(np.mean(val_NSS.data.cpu().numpy()))
                     
                     self.val_NSS_history.append(np.mean(val_NSS_Scores))
-                    print('[Epoch %i/%i] TRAIN NSS/loss: /%f' % (i, num_epochs, train_NSS.data.cpu().numpy(), loss.data.cpu().numpy()))
-                    print('[Epoch %i/%i] VAL NSS/loss: %f' % (i, num_epochs, np.mean(val_NSS_Scores), np.mean(val_losses)))
+                    print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i+1, num_epochs, train_NSS, loss.data.cpu().numpy()))
+                    print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i+1, num_epochs, np.mean(val_NSS_Scores), np.mean(val_losses)))
                     
                     model.train() #Set model state to training
                     
