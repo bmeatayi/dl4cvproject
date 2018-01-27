@@ -8,9 +8,6 @@ import math
 
 
 class Solver(object):
-    '''
-    TO DO: have a measure for performance over time such as NSS or MSE to observe behavior on validation data
-    '''
 
     default_adam_args = {"lr": 1e-4,
         "betas": (0.9, 0.999),
@@ -30,11 +27,11 @@ class Solver(object):
 
     def _reset_histories(self):
         """
-        Resets train and val histories for the accuracy and the loss.
+        Resets train and val histories for the NSS and the loss.
         """
         self.train_loss_history = []
-        self.train_acc_history = []
-        self.val_acc_history = []
+        self.train_NSS_history = []
+        self.val_NSS_history = []
         self.val_loss_history = []
         
 
@@ -93,6 +90,53 @@ class Solver(object):
         return torch.mean(result[mask])
 
 
+    def NSS_score(self, out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, fix_data):
+        '''
+        Input:
+            - out_pi, out_mu_x, out_mu_y, out_sigma, out_corr : Gaussians parameters
+            - fix_data : Ground truth fixation data
+
+        Output:
+            - NSS Score for each of the clips
+        '''
+
+        xGrid, yGrid = np.meshgrid(np.linspace(1, 112, 112), np.linspace(1, 112, 112))
+        map_locations = torch.zeros(112*112, 2)
+        xGrid = xGrid.reshape(112*112).astype(np.float32)
+        yGrid = yGrid.reshape(112*112).astype(np.float32)
+        map_locations[:,0] = torch.from_numpy(xGrid.copy())
+        map_locations[:,1] = torch.from_numpy(xGrid.copy())
+        map_locations = Variable(map_locations, requires_grad=False)
+        if torch.cuda.is_available():
+            map_locations = map_locations.cuda()
+
+        N = out_pi.size(0)
+        map_locations = map_locations.expand(N, *map_locations.size())
+        sal_results = self._gaussian_distribution2d(out_mu_x, out_mu_y, out_sigma, out_corr, map_locations)
+        out_pi_all = out_pi.expand(112*112, *out_pi.size())
+        out_pi_all = out_pi_all.contiguous().view(sal_results.size())
+        sal_results = sal_results*out_pi_all
+        sal_results = torch.sum(sal_results, dim=0)
+
+        sal_results_mean = torch.mean(sal_results, dim=1)
+        sal_results_mean = sal_results_mean.view(*sal_results_mean.size(), 1)
+        sal_results_std = torch.std(sal_results, dim=1)
+        sal_results_std = sal_results_std.view(*sal_results_std.size(), 1)
+
+        sal_results_fix = self._gaussian_distribution2d(out_mu_x, out_mu_y, out_sigma, out_corr, fix_data)
+        nFix = sal_results_fix.size(-1)
+        out_pi_fix = out_pi.expand(nFix, *out_pi.size())
+        out_pi_fix = out_pi_fix.contiguous().view(sal_results_fix.size())
+        sal_results_fix = sal_results_fix*out_pi_fix
+        sal_results_fix = torch.sum(sal_results_fix, dim=0)
+
+        sal_results_mean = sal_results_mean.expand_as(sal_results_fix)
+        sal_results_std = sal_results_std.expand_as(sal_results_fix)
+
+        sal_results_norm = torch.div(sal_results_fix-sal_results_mean, sal_results_std)
+
+        return torch.mean(sal_results_norm, dim=1)
+
 
     def train(self, model, train_loader, val_loader, num_epochs=10, log_nth=0, n_decay_epoch=None,decay_factor=0.1):
         """
@@ -119,6 +163,7 @@ class Solver(object):
         nIterations = num_epochs*iter_per_epoch
 
 
+
         for i in range(1,num_epochs+1):
             for j, (inputs, labels) in enumerate(train_loader, 1):
                 # I don't know why the dataloader gives double tensors!
@@ -132,24 +177,25 @@ class Solver(object):
                 if model.is_cuda:
                     inputs, labels = inputs.cuda(), labels.cuda()
                 
-                (out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model(inputs)
-                loss = self.mdn_loss_function(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, labels)
+                outputs = model(inputs)
+                loss = self.mdn_loss_function(*outputs, labels)
+                print('[Iteration %i/%i] TRAIN loss: %f' % (it,nIterations,loss.data.cpu().numpy()))
+
                 optim.zero_grad()
                 loss.backward()
                 optim.step()
                 
-                if it%log_nth==0:
-                    print('[Iteration %i/%i] TRAIN loss: %f' % (it,nIterations,loss.data.cpu().numpy()))
+                if it%log_nth==0:                    
                     self.train_loss_history.append(loss.data.cpu().numpy())
 
-                    ####################################################### 
-                    # To do: NSS score can be computed and reported here!
-                    #
-                    #
-                    #######################################################
-                    
+                    train_NSS = self.NSS_score(*outputs, labels)
+                    train_NSS = np.mean(train_NSS.data.cpu().numpy())
+                    self.train_NSS_history.append(train_NSS)                    
+
                     # Validation set
                     val_losses = []
+                    val_NSS_Scores = []
+
                     model.eval()   #Set model state to evaluation 
                     
                     for ii,(inputs, labels) in enumerate(val_loader, 1):
@@ -159,17 +205,22 @@ class Solver(object):
                         if model.is_cuda:
                             inputs, labels = inputs.cuda(), labels.cuda()
 
-                        (out_pi, out_mu_x, out_mu_y, out_sigma, out_corr) = model.forward(inputs)
-                        loss_val = self.mdn_loss_function(out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, labels)
+                        outputs = model.forward(inputs)
+                        loss_val = self.mdn_loss_function(*outputs, labels)
                         val_losses.append(loss_val.data.cpu().numpy())
-                       
-                    print('[Epoch %i/%i] TRAIN loss: /%f' % (i,num_epochs,loss.data.cpu().numpy()))
-                    print('[Epoch %i/%i] VAL loss: %f' % (i,num_epochs,np.mean(val_losses)))
+                        
+                        val_NSS = self.NSS_score(*outputs, labels)
+                        val_NSS_Scores.append(np.mean(val_NSS.data.cpu().numpy()))
+                    
+                    self.val_NSS_history.append(np.mean(val_NSS_Scores))
+                    print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i+1, num_epochs, train_NSS, loss.data.cpu().numpy()))
+                    print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i+1, num_epochs, np.mean(val_NSS_Scores), np.mean(val_losses)))
                     
                     model.train() #Set model state to training
-                    
+
 	    if self.n_decay_epoch is not None:
-		optim = self.decay_lr(self, i, optim)
+        optim = self.decay_lr(self, i, optim)
+
                         
         print('FINISH.')
         
