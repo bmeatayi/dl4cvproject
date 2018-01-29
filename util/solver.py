@@ -170,8 +170,6 @@ class Solver(object):
                 inputs = inputs.float()
                 labels = labels.float()
                 it = (i-1)*iter_per_epoch + j
-                inputs = inputs.squeeze(dim=0)
-                labels = labels.squeeze(dim=0)
                 inputs = Variable(inputs)
                 labels = Variable(labels)
                 if model.is_cuda:

@@ -17,7 +17,6 @@ class VidSal(nn.Module):
         self.hidden_size = hidden_size
         self.LSTM_layers = LSTM_layers
         
-        ## To 
         self.cnn3d = CNN3d(model_path,freeze_weights = freeze_cnn3d_weights)
         self.lstm = nn.LSTM(2048, self.hidden_size, self.LSTM_layers)
         self.hidden0 = self.init_hidden()
@@ -27,14 +26,25 @@ class VidSal(nn.Module):
         
     def forward(self, x):
         '''
-        Note: Assumed batch size is 1 (1 video at a time, first dimension is # clips)!
+        Note: CNN3d loops over clips and gives feature map for the use of lstm
+        Input dim (Ns, Nchan, Nf, H, W)
         '''
         #print('input size:',x.size())
-        x = self.cnn3d(x)
-        #print('size after cnn3d:',x.size())
-        x = x.view(x.size(0), 1, -1)
-        #print('size of lstm input:',x.size())
-        x, lasthidden = self.lstm(x)#, self.hidden0)
+        
+        
+        # loop over clips
+        nClips = x.shape[2]-15
+        lstm_in = torch.cuda.FloatTensor(0,0,0) #feature maps for lstm - dim = (Nseq,Ns,lstm_input_size)
+        for i in range(nclips):
+            clip = x[:,:,i:i+16,:,:]
+            f = self.cnn3d(clip)
+            f = f.view(f.size(0), 1, -1)
+            print("f size is ",f.size())
+            lstm_in = torch.cat((lstm_in,f),0)
+            
+        print('size after cnn3d:',lstm_in.size())
+        
+        x, lasthidden = self.lstm(lstm_in)#, self.hidden0)
         x = x.view(x.size(0), -1)
         x = self.mdn(x)
         #print(x)
