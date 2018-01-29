@@ -241,26 +241,26 @@ class dataPreprocessing():
         temp_animal_train = self.animal_vids_train[:]
         for idx, vid in enumerate(self.animal_train):
             normalized = (np.double(temp_animal_train[idx]) - self.mean)/self.std
-            np.save('TrainSet/'+vid,normalized)
+            np.save('TrainSet/videos/'+vid,normalized)
             xx = FixationLoader()
             fixation_data = xx.get_video_fixation('animal/'+vid+'/Data.mat')
-            np.save('TrainSet/FixData/'+vid, fixation_data)
+            np.save('TrainSet/groundtruth/'+vid, fixation_data)
             
         temp_human_train = self.human_vids_train[:]
         for idx, vid in enumerate(self.human_train):
             normalized = (np.double(temp_human_train[idx]) - self.mean)/self.std
-            np.save('TrainSet/'+vid,normalized)
+            np.save('TrainSet/videos/'+vid,normalized)
             xx = FixationLoader()
             fixation_data = xx.get_video_fixation('human/'+vid+'/Data.mat')
-            np.save('TrainSet/FixData/'+vid, fixation_data)
+            np.save('TrainSet/groundtruth/'+vid, fixation_data)
             
         temp_manmade_train = self.manmade_vids_train[:]
         for idx, vid in enumerate(self.manmade_train):
             normalized = (np.double(temp_manmade_train[idx]) - self.mean)/self.std
-            np.save('TrainSet/'+vid,normalized)
+            np.save('TrainSet/videos/'+vid,normalized)
             xx = FixationLoader()
             fixation_data = xx.get_video_fixation('manmade/'+vid+'/Data.mat')
-            np.save('TrainSet/FixData/'+vid, fixation_data)
+            np.save('TrainSet/groundtruth/'+vid, fixation_data)
             
         toc=time.clock()
         proc_time=toc-tic
@@ -272,28 +272,28 @@ class dataPreprocessing():
             VideoFullName = 'animal/'+vid + '/'+vid+'.mp4'
             buf = self.read_video(VideoFullName, self.FramesPerClip, self.stride, self.desired_width, self.desired_height)
             normalized = (np.double(buf) - self.mean)/self.std
-            np.save('TestSet/'+vid,normalized)
+            np.save('TestSet/videos/'+vid,normalized)
             xx = FixationLoader()
             fixation_data = xx.get_video_fixation('animal/'+vid+'/Data.mat')
-            np.save('TestSet/FixData/'+vid, fixation_data)
+            np.save('TestSet/groundtruth/'+vid, fixation_data)
             
         for vid in self.human_test:
             VideoFullName = 'human/'+vid + '/'+vid+'.mp4'
             buf = self.read_video(VideoFullName, self.FramesPerClip, self.stride, self.desired_width, self.desired_height)
             normalized = (np.double(buf) - self.mean)/self.std
-            np.save('TestSet/'+vid,normalized)
+            np.save('TestSet/videos/'+vid,normalized)
             xx = FixationLoader()
             fixation_data = xx.get_video_fixation('human/'+vid+'/Data.mat')
-            np.save('TestSet/FixData/'+vid, fixation_data)
+            np.save('TestSet/groundtruth/'+vid, fixation_data)
 
         for vid in self.manmade_test:
             VideoFullName = 'manmade/'+vid + '/'+vid+'.mp4'
             buf = self.read_video(VideoFullName, self.FramesPerClip, self.stride, self.desired_width, self.desired_height)
             normalized = (np.double(buf) - self.mean)/self.std
-            np.save('TestSet/'+vid,normalized)
+            np.save('TestSet/videos/'+vid,normalized)
             xx = FixationLoader()
             fixation_data = xx.get_video_fixation('manmade/'+vid+'/Data.mat')
-            np.save('TestSet/FixData/'+vid, fixation_data)    
+            np.save('TestSet/groundtruth/'+vid, fixation_data)    
         
         toc=time.clock()
         proc_time=toc-tic
@@ -305,28 +305,28 @@ class dataPreprocessing():
             VideoFullName = 'animal/'+vid + '/'+vid+'.mp4'
             buf = self.read_video(VideoFullName, self.FramesPerClip, self.stride, self.desired_width, self.desired_height)
             normalized = (np.double(buf) - self.mean)/self.std
-            np.save('ValidSet/'+vid,normalized)
+            np.save('ValidSet/videos/'+vid,normalized)
             xx = FixationLoader()
             fixation_data = xx.get_video_fixation('animal/'+vid+'/Data.mat')
-            np.save('ValidSet/FixData/'+vid, fixation_data)
+            np.save('ValidSet/groundtruth/'+vid, fixation_data)
             
         for vid in self.human_valid:
             VideoFullName = 'human/'+vid + '/'+vid+'.mp4'
             buf = self.read_video(VideoFullName, self.FramesPerClip, self.stride, self.desired_width, self.desired_height)
             normalized = (np.double(buf) - self.mean)/self.std
-            np.save('ValidSet/'+vid,normalized)
+            np.save('ValidSet/videos/'+vid,normalized)
             xx = FixationLoader()
             fixation_data = xx.get_video_fixation('human/'+vid+'/Data.mat')
-            np.save('ValidSet/FixData/'+vid, fixation_data)
+            np.save('ValidSet/groundtruth/'+vid, fixation_data)
 
         for vid in self.manmade_valid:
             VideoFullName = 'manmade/'+vid + '/'+vid+'.mp4'
             buf = self.read_video(VideoFullName, self.FramesPerClip, self.stride, self.desired_width, self.desired_height)
             normalized = (np.double(buf) - self.mean)/self.std
-            np.save('ValidSet/'+vid,normalized)
+            np.save('ValidSet/videos/'+vid,normalized)
             xx = FixationLoader()
             fixation_data = xx.get_video_fixation('manmade/'+vid+'/Data.mat')
-            np.save('ValidSet/FixData/'+vid, fixation_data)    
+            np.save('ValidSet/groundtruth/'+vid, fixation_data)    
         
         toc=time.clock()
         proc_time=toc-tic
