@@ -169,7 +169,7 @@ class Solver(object):
                 # I don't know why the dataloader gives double tensors!
                 inputs = inputs.float()
                 labels = labels.float()
-                it = i*iter_per_epoch + j
+                it = (i-1)*iter_per_epoch + j
                 inputs = inputs.squeeze(dim=0)
                 labels = labels.squeeze(dim=0)
                 inputs = Variable(inputs)
@@ -213,8 +213,8 @@ class Solver(object):
                         val_NSS_Scores.append(np.mean(val_NSS.data.cpu().numpy()))
                     
                     self.val_NSS_history.append(np.mean(val_NSS_Scores))
-                    print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i+1, num_epochs, train_NSS, loss.data.cpu().numpy()))
-                    print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i+1, num_epochs, np.mean(val_NSS_Scores), np.mean(val_losses)))
+                    print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i, num_epochs, train_NSS, loss.data.cpu().numpy()))
+                    print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i, num_epochs, np.mean(val_NSS_Scores), np.mean(val_losses)))
                     
                     model.train() #Set model state to training
 
