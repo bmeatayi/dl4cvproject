@@ -32,6 +32,7 @@ class vidsalDataset(data.Dataset):
         return len(self.filelist)
     
     def __getitem__(self, idx):
+        #print(idx)
         vid_path = self.dir_path_vid + self.filelist[idx]
         gt_path = self.dir_path_gt + self.filelist[idx]
         #print(vid_path)
@@ -40,7 +41,12 @@ class vidsalDataset(data.Dataset):
         
         ##TO DO: split videos to clips
         ##       Generate appropriate ground truth
-        clips,fixations = self.split(video, groundtruth)
+        #clips,fixations = self.split(video, groundtruth)
+        nFrames, H, W, nCh = video.shape
+        video = video.reshape(nCh, nFrames, H, W)
+        #clips,fixations = (video[:,:100,:,:], groundtruth[15:100,:,:])
+        clips, fixations = (video, groundtruth)
+        #print('getItem fixations: ', fixations.shape)
         return clips,fixations
     
     def split(self, video, groundtruth):

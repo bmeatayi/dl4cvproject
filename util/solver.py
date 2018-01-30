@@ -36,7 +36,10 @@ class Solver(object):
         
 
     def _gaussian_distribution2d(self, out_mu_x, out_mu_y, out_sigma, out_corr, fix_data):
-        #print(fix_data.size())
+        
+        #print('fixdata_size (GD):', fix_data.size())
+        #fix_data = fix_data.view(fix_data.size(0)*fix_data.size(1), *fix_data.size()[2:])
+        #print('out_mu_size (GD)', out_mu_x.size())
         nFrames, nFixs,_ = fix_data.size()
         KMIX = out_mu_x.size(1)
         # combine x and y mean values
@@ -71,6 +74,7 @@ class Solver(object):
         # the output of this function is the mean of the probability values. this differs from the original paper, in which the formula
         is taking the sum as oppose to the mean
         '''
+        
         result = self._gaussian_distribution2d(out_mu_x, out_mu_y, out_sigma, out_corr, fix_data)
         nFix = result.size(-1)
         out_pi = out_pi.expand(nFix, *out_pi.size())
@@ -79,7 +83,7 @@ class Solver(object):
         result = torch.sum(result, dim=0)
         result = - torch.log(result)
 
-	# getting the mask to ignore fixation values with (0, 0) coordinate
+        # getting the mask to ignore fixation values with (0, 0) coordinate
         mask0 = fix_data[:,:,0] != 0
         mask1 = fix_data[:,:,1] != 0
         masks = mask0 + mask1
@@ -163,13 +167,12 @@ class Solver(object):
         nIterations = num_epochs*iter_per_epoch
 
 
-
-        for i in range(1,num_epochs+1):
+        for i in range(num_epochs):
             for j, (inputs, labels) in enumerate(train_loader, 1):
                 # I don't know why the dataloader gives double tensors!
                 inputs = inputs.float()
                 labels = labels.float()
-                it = (i-1)*iter_per_epoch + j
+                it = i*iter_per_epoch + j
                 inputs = inputs.squeeze(dim=0)
                 labels = labels.squeeze(dim=0)
                 inputs = Variable(inputs)
@@ -178,14 +181,16 @@ class Solver(object):
                     inputs, labels = inputs.cuda(), labels.cuda()
                 
                 outputs = model(inputs)
+                # Combine first two dimensions to concider batch size > 1
+                labels = labels.view(labels.size(0)*labels.size(1), *labels.size()[2:])
                 loss = self.mdn_loss_function(*outputs, labels)
                 print('[Iteration %i/%i] TRAIN loss: %f' % (it,nIterations,loss.data.cpu().numpy()))
-
                 optim.zero_grad()
                 loss.backward()
                 optim.step()
                 
-                if it%log_nth==0:                    
+                if it%log_nth==0:
+                    
                     self.train_loss_history.append(loss.data.cpu().numpy())
 
                     train_NSS = self.NSS_score(*outputs, labels)
@@ -195,7 +200,6 @@ class Solver(object):
                     # Validation set
                     val_losses = []
                     val_NSS_Scores = []
-
                     model.eval()   #Set model state to evaluation 
                     
                     for ii,(inputs, labels) in enumerate(val_loader, 1):
@@ -206,6 +210,7 @@ class Solver(object):
                             inputs, labels = inputs.cuda(), labels.cuda()
 
                         outputs = model.forward(inputs)
+                        labels = labels.view(labels.size(0)*labels.size(1), *labels.size()[2:])
                         loss_val = self.mdn_loss_function(*outputs, labels)
                         val_losses.append(loss_val.data.cpu().numpy())
                         
@@ -213,14 +218,13 @@ class Solver(object):
                         val_NSS_Scores.append(np.mean(val_NSS.data.cpu().numpy()))
                     
                     self.val_NSS_history.append(np.mean(val_NSS_Scores))
-                    print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i, num_epochs, train_NSS, loss.data.cpu().numpy()))
-                    print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i, num_epochs, np.mean(val_NSS_Scores), np.mean(val_losses)))
+                    print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i+1, num_epochs, train_NSS, loss.data.cpu().numpy()))
+                    print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i+1, num_epochs, np.mean(val_NSS_Scores), np.mean(val_losses)))
                     
                     model.train() #Set model state to training
-
-	    if self.n_decay_epoch is not None:
-        optim = self.decay_lr(self, i, optim)
-
+                    
+            if self.n_decay_epoch is not None:
+                optim = self.decay_lr(self, i, optim)
                         
         print('FINISH.')
         
