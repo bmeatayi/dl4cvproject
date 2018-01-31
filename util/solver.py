@@ -111,7 +111,8 @@ class Solver(object):
         xGrid = xGrid.reshape(112*112).astype(np.float32)
         yGrid = yGrid.reshape(112*112).astype(np.float32)
         map_locations[:,0] = torch.from_numpy(xGrid.copy())
-        map_locations[:,1] = torch.from_numpy(xGrid.copy())
+        map_locations[:,1] = torch.from_numpy(yGrid.copy())
+        del xGrid, yGrid
         map_locations = Variable(map_locations, requires_grad=False)
             
         ## Move all to CPU: ###
