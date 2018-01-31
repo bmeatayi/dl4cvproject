@@ -38,6 +38,8 @@ def pad_packed_collate(batch):
         max_len_inp, H, W = inputs[0].shape[1:]
         inputs = [torch.cat((torch.Tensor(inp), torch.zeros(3, max_len_inp - inp.shape[1], H, W)), dim=1) if inp.shape[1] != max_len_inp else torch.Tensor(inp) for inp in inputs]
         max_len_label, H, W = labels[0].shape
+        #for label in labels:
+        #    print(torch.Tensor(label).size(), torch.zeros(max_len_label - label.shape[0], H, W).size())
         labels = [torch.cat((torch.Tensor(label), torch.zeros(max_len_label - label.shape[0], H, W)), dim=0) if label.shape[0] != max_len_label else torch.Tensor(label) for label in labels]
         #print(len(inputs))
         inputs = torch.stack(inputs, 0)

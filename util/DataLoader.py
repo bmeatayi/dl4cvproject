@@ -45,7 +45,7 @@ class vidsalDataset(data.Dataset):
         nFrames, H, W, nCh = video.shape
         video = video.reshape(nCh, nFrames, H, W)
         #clips,fixations = (video[:,:100,:,:], groundtruth[15:100,:,:])
-        clips, fixations = (video, groundtruth)
+        clips, fixations = (video, groundtruth[15:,:,:])
         #print('getItem fixations: ', fixations.shape)
         return clips,fixations
     
