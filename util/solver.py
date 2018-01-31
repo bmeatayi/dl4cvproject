@@ -113,8 +113,6 @@ class Solver(object):
         map_locations[:,0] = torch.from_numpy(xGrid.copy())
         map_locations[:,1] = torch.from_numpy(xGrid.copy())
         map_locations = Variable(map_locations, requires_grad=False)
-        #if torch.cuda.is_available():
-        #    map_locations = map_locations.cuda()
             
         ## Move all to CPU: ###
         map_locations, out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, fix_data = map_locations.cpu(), out_pi.cpu(), out_mu_x.cpu(), out_mu_y.cpu(), out_sigma.cpu(), out_corr.cpu(), fix_data.cpu()
@@ -131,20 +129,10 @@ class Solver(object):
         
         # Generate saliency map from different gaussians in a loop to avoid memory overuse:
         for k in range(KMIX):
-            #out_pi_all = out_pi_all.contiguous().view(sal_results.size())
-            #print('in loop sal_results size:', self._gaussian_distribution2d(out_mu_x[:,k].contiguous().view(N,1), out_mu_y[:,k].contiguous().view(N,1), out_sigma[:,k].contiguous().view(N,1), out_corr[:,k].contiguous().view(N,1), map_locations))
             sal_results = sal_results + out_pi_all[k,:,:].contiguous().view(1, N, 112*112) * self._gaussian_distribution2d(out_mu_x[:,k].contiguous().view(N,1), out_mu_y[:,k].contiguous().view(N,1), out_sigma[:,k].contiguous().view(N,1), out_corr[:,k].contiguous().view(N,1), map_locations)
         sal_results = sal_results/KMIX
-        #print('sal_results:', sal_results.size())
+
         sal_results = sal_results.squeeze()
-        #print('sal_results:', sal_results.size())
-        
-        #sal_results = self._gaussian_distribution2d(out_mu_x, out_mu_y, out_sigma, out_corr, map_locations)
-        #out_pi_all = out_pi.expand(112*112, *out_pi.size())
-        #out_pi_all = out_pi_all.contiguous().view(sal_results.size())
-        #print('out_mu_pi:', out_pi_all.size())
-        #sal_results = sal_results*out_pi_all
-        #sal_results = torch.mean(sal_results, dim=0)
 
         sal_results_mean = torch.mean(sal_results, dim=1)
         sal_results_mean = sal_results_mean.view(*sal_results_mean.size(), 1)

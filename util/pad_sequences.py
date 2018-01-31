@@ -29,27 +29,19 @@ def pad_packed_collate(batch):
         inputs.unsqueeze_(0)
         labels.unsqueeze_(0)
     if len(batch) > 1:
-        #for (a,b) in batch:
-        #    print(a.shape)
-        #    print(b.shape)
         
         inputs, labels, lengths = zip(*[(a, b, a.shape[1]) for (a,b) in sorted(batch, key=lambda x: x[0].shape[1], reverse=True)])
-        #print('inputs0:',inputs[0].shape)
+
         max_len_inp, H, W = inputs[0].shape[1:]
         inputs = [torch.cat((torch.Tensor(inp), torch.zeros(3, max_len_inp - inp.shape[1], H, W)), dim=1) if inp.shape[1] != max_len_inp else torch.Tensor(inp) for inp in inputs]
         max_len_label, H, W = labels[0].shape
-        #for label in labels:
-        #    print(torch.Tensor(label).size(), torch.zeros(max_len_label - label.shape[0], H, W).size())
+
         labels = [torch.cat((torch.Tensor(label), torch.zeros(max_len_label - label.shape[0], H, W)), dim=0) if label.shape[0] != max_len_label else torch.Tensor(label) for label in labels]
-        #print(len(inputs))
+        
         inputs = torch.stack(inputs, 0)
         labels = torch.stack(labels, 0)
-        #print(inputs.size())
-        #print(labels.size())
     #packed_batch = pack(Variable(inputs), lengths, batch_first=True)     #Make sure that we don't need this!
     #packed_labels = pack(Variable(labels), lengths, batch_first=True)    #Make sure that we don't need this!
-    #print('after',inputs.size())
-    #print('after',labels.size())
     return inputs, labels
 
 ########################################################################
