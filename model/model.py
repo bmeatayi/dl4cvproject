@@ -17,9 +17,8 @@ class VidSal(nn.Module):
         self.hidden_size = hidden_size
         self.LSTM_layers = LSTM_layers
         
-        ## To 
         self.cnn3d = CNN3d(model_path,freeze_weights = freeze_cnn3d_weights)
-        self.lstm = nn.LSTM(2048, self.hidden_size, self.LSTM_layers)
+        self.lstm = nn.LSTM(2048, self.hidden_size, self.LSTM_layers, batch_first=True)
         self.hidden0 = self.init_hidden()
         
         self.mdn = MDN1D(input_dim=self.hidden_size)
@@ -27,17 +26,34 @@ class VidSal(nn.Module):
         
     def forward(self, x):
         '''
-        Note: Assumed batch size is 1 (1 video at a time, first dimension is # clips)!
+        Note: CNN3d loops over clips and gives feature map for the use of lstm
+        Input dim (Ns, Nchan, Nf, H, W)
         '''
         #print('input size:',x.size())
-        x = self.cnn3d(x)
-        #print('size after cnn3d:',x.size())
-        x = x.view(x.size(0), 1, -1)
-        #print('size of lstm input:',x.size())
-        x, lasthidden = self.lstm(x)#, self.hidden0)
-        x = x.view(x.size(0), -1)
+        if len(x.size()) == 4:
+            x = x.view(1, *x.size())
+        
+        # loop over clips
+        nClips = x.size(2)-15
+        #lstm_in = torch.cuda.FloatTensor(x.size(0), 0, 2048) #feature maps for lstm - dim = (Nseq,Ns,lstm_input_size)
+        for i in range(nClips):
+            clip = x[:,:,i:i+16,:,:]
+            f = self.cnn3d(clip)
+            f = f.view(f.size(0), 1, -1)
+            #print("f size is ",f.size())
+            if i == 0:
+                lstm_in = f
+            else:
+                lstm_in = torch.cat((lstm_in,f), dim=1)
+            
+        #print('size after cnn3d:',lstm_in.size())
+        
+        x, lasthidden = self.lstm(lstm_in)#, self.hidden0)
+        #print('after lstm size:', x.size())
+        x = x.contiguous().view(-1, x.size(-1))
+        #print('mdn input size:', x.size())
         x = self.mdn(x)
-        #print(x)
+
         
         return x
     
@@ -59,7 +75,6 @@ class VidSal(nn.Module):
         """
         Save model with its parameters to the given path. Conventionally the
         path should end with "*.model".
-
         Inputs:
         - path: path string
         """
