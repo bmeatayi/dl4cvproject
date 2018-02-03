@@ -105,54 +105,62 @@ class Solver(object):
         Output:
             - NSS Score for each of the clips
         '''
-        
+        out_pi, out_mu_x, out_mu_y, out_sigma, out_corr,fix_data = out_pi.data, out_mu_x.data, out_mu_y.data, out_sigma.data, out_corr.data, fix_data.data
+
+        #print('out_pi size:', out_pi.size())
+        #print('fix_data size:', fix_data.size())
         xGrid, yGrid = np.meshgrid(np.linspace(1, 112, 112), np.linspace(1, 112, 112))
-        map_locations = torch.zeros(112*112, 2)
+        map_locations = torch.zeros(112*112, 2).cuda()
         xGrid = xGrid.reshape(112*112).astype(np.float32)
         yGrid = yGrid.reshape(112*112).astype(np.float32)
-        map_locations[:,0] = torch.from_numpy(xGrid.copy())
-        map_locations[:,1] = torch.from_numpy(yGrid.copy())
+        map_locations[:,0] = torch.from_numpy(xGrid.copy()).cuda()
+        map_locations[:,1] = torch.from_numpy(yGrid.copy()).cuda()
         del xGrid, yGrid
-        map_locations = Variable(map_locations, requires_grad=False)
-            
-        ## Move all to CPU: ###
-        map_locations, out_pi, out_mu_x, out_mu_y, out_sigma, out_corr, fix_data = map_locations.cpu(), out_pi.cpu(), out_mu_x.cpu(), out_mu_y.cpu(), out_sigma.cpu(), out_corr.cpu(), fix_data.cpu()
-
         N, KMIX = out_pi.size()
         #KMIX = out_pi.size(1)
-        
-        map_locations = map_locations.expand(N, *map_locations.size())
+        #print('map_locations',map_locations.size())
+        map_locations = map_locations.expand(N, *map_locations.size())/112
         #print('out_mu_x:', out_mu_x.size())
-        
+        #print('map_locations expanded',map_locations.size())
         out_pi_all = out_pi.expand(112*112, *out_pi.size())
         out_pi_all = out_pi_all.contiguous().view(KMIX, N, 112*112)
-        sal_results = Variable(torch.zeros(1, N, 112*112))
+        #print('out_pi_all',out_pi_all.size())
+        sal_results = torch.zeros(1, N, 112*112).cuda()
         
         # Generate saliency map from different gaussians in a loop to avoid memory overuse:
         for k in range(KMIX):
-            sal_results = sal_results + out_pi_all[k,:,:].contiguous().view(1, N, 112*112) * self._gaussian_distribution2d(out_mu_x[:,k].contiguous().view(N,1), out_mu_y[:,k].contiguous().view(N,1), out_sigma[:,k].contiguous().view(N,1), out_corr[:,k].contiguous().view(N,1), map_locations)
+            sal_results = sal_results + out_pi_all[k,:,:].contiguous().view(
+                1, N, 112*112) *self._gaussian_distribution2d(out_mu_x[:,k].contiguous().view(N,1), 
+                                          out_mu_y[:,k].contiguous().view(N,1), out_sigma[:,k].contiguous().view(N,1),
+                                          out_corr[:,k].contiguous().view(N,1), map_locations)
         sal_results = sal_results/KMIX
 
         sal_results = sal_results.squeeze()
-
+        print('fix_data:',fix_data.size())
         sal_results_mean = torch.mean(sal_results, dim=1)
-        sal_results_mean = sal_results_mean.view(*sal_results_mean.size(), 1)
+        sal_results_mean = sal_results_mean.view(*sal_results_mean.size(),1)
         sal_results_std = torch.std(sal_results, dim=1)
         sal_results_std = sal_results_std.view(*sal_results_std.size(), 1)
+        
+        sal_results -= sal_results_mean 
+        sal_results /= sal_results_std
+        #print(sal_results_mean.size())
+        #print('sal_res:', sal_results.size())
+        sal_results  = sal_results.contiguous().view(sal_results.size(0),112,112)
+        fix_data = fix_data.cpu().numpy().astype(np.float).transpose(0,2,1)
+        nTrueFix = np.sum(fix_data!=0)
+        mask = np.zeros((N,112,112),dtype=np.uint8)
+        fix_data_xy = np.floor(fix_data*112).astype(np.uint8)
+        #print('fix_data_xy size:',fix_data_xy.shape)
+        for i in range(N):
+            mask[i,fix_data_xy[i,0,:],fix_data_xy[i,1,:]]+=1
+        mask[i,0,0]=0 #to remove the effect of zero fixations
+        mask = torch.from_numpy(mask.astype(np.float32)).cuda()
+        #print(mask.size(),sal_results.size())
+        NSS = torch.sum(sal_results*mask)/torch.sum(mask!=0)
+        
 
-        sal_results_fix = self._gaussian_distribution2d(out_mu_x, out_mu_y, out_sigma, out_corr, fix_data)
-        nFix = sal_results_fix.size(-1)
-        out_pi_fix = out_pi.expand(nFix, *out_pi.size())
-        out_pi_fix = out_pi_fix.contiguous().view(sal_results_fix.size())
-        sal_results_fix = sal_results_fix*out_pi_fix
-        sal_results_fix = torch.mean(sal_results_fix, dim=0)
-
-        sal_results_mean = sal_results_mean.expand_as(sal_results_fix)
-        sal_results_std = sal_results_std.expand_as(sal_results_fix)
-
-        sal_results_norm = torch.div(sal_results_fix-sal_results_mean, sal_results_std)
-
-        return torch.mean(sal_results_norm, dim=1)
+        return NSS
 
 
     def train(self, model, train_loader, val_loader, num_epochs=10, log_nth=0, n_decay_epoch=None,decay_factor=0.1):
@@ -220,7 +228,7 @@ class Solver(object):
                     model.eval()   #Set model state to evaluation 
                     
                     # Select random batch from the validation set:
-                    rand_select = randint(0, len(val_loader)-1)
+                    rand_select = randint(1, len(val_loader))
                     for ii,(inputs, labels) in enumerate(val_loader, 1):
                         
                         if rand_select == ii:
@@ -241,10 +249,10 @@ class Solver(object):
                             #val_NSS_Scores.append(np.mean(val_NSS.data.cpu().numpy()))
                             val_NSS = np.mean(val_NSS.data.cpu().numpy())
                     
-                    #self.val_NSS_history.append(np.mean(val_NSS_Scores))
-                    self.val_NSS_history.append(val_NSS)
-                    print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i+1, num_epochs, train_NSS, loss.data.cpu().numpy()))
-                    print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i+1, num_epochs, val_NSS, loss_val.data.cpu().numpy()))
+                            #self.val_NSS_history.append(np.mean(val_NSS_Scores))
+                            self.val_NSS_history.append(val_NSS)
+                            print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i+1, num_epochs, train_NSS, loss.data.cpu().numpy()))
+                            print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i+1, num_epochs, val_NSS, loss_val.data.cpu().numpy()))
                     
                     #print('[Epoch %i/%i] TRAIN loss: %f' % (i+1, num_epochs, loss.data.cpu().numpy()))
                     #print('[Epoch %i/%i] VAL loss: %f' % (i+1, num_epochs, loss_val.data.cpu().numpy()))
