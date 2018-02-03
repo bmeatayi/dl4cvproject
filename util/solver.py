@@ -228,7 +228,7 @@ class Solver(object):
                     model.eval()   #Set model state to evaluation 
                     
                     # Select random batch from the validation set:
-                    rand_select = randint(0, len(val_loader)-1)
+                    rand_select = randint(1, len(val_loader))
                     for ii,(inputs, labels) in enumerate(val_loader, 1):
                         
                         if rand_select == ii:
@@ -249,10 +249,10 @@ class Solver(object):
                             #val_NSS_Scores.append(np.mean(val_NSS.data.cpu().numpy()))
                             val_NSS = np.mean(val_NSS.data.cpu().numpy())
                     
-                    #self.val_NSS_history.append(np.mean(val_NSS_Scores))
-                    self.val_NSS_history.append(val_NSS)
-                    print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i+1, num_epochs, train_NSS, loss.data.cpu().numpy()))
-                    print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i+1, num_epochs, val_NSS, loss_val.data.cpu().numpy()))
+                            #self.val_NSS_history.append(np.mean(val_NSS_Scores))
+                            self.val_NSS_history.append(val_NSS)
+                            print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i+1, num_epochs, train_NSS, loss.data.cpu().numpy()))
+                            print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i+1, num_epochs, val_NSS, loss_val.data.cpu().numpy()))
                     
                     #print('[Epoch %i/%i] TRAIN loss: %f' % (i+1, num_epochs, loss.data.cpu().numpy()))
                     #print('[Epoch %i/%i] VAL loss: %f' % (i+1, num_epochs, loss_val.data.cpu().numpy()))
