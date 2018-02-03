@@ -136,7 +136,7 @@ class Solver(object):
         sal_results = sal_results/KMIX
 
         sal_results = sal_results.squeeze()
-        print('fix_data:',fix_data.size())
+        #print('fix_data:',fix_data.size())
         sal_results_mean = torch.mean(sal_results, dim=1)
         sal_results_mean = sal_results_mean.view(*sal_results_mean.size(),1)
         sal_results_std = torch.std(sal_results, dim=1)
@@ -177,7 +177,7 @@ class Solver(object):
         self.n_decay_epoch = n_decay_epoch
         self.decay_factor = decay_factor
         optim = self.optim(filter(lambda p: p.requires_grad, model.parameters()), **self.optim_args)
-        self._reset_histories()
+        #self._reset_histories()
         iter_per_epoch = len(train_loader)
 
         if torch.cuda.is_available():
@@ -186,15 +186,14 @@ class Solver(object):
         print('START TRAIN.')
 
         nIterations = num_epochs*iter_per_epoch
-
-
+        it=0
         for i in range(num_epochs):
             for j, (inputs, labels) in enumerate(train_loader, 1):
                 tic = time.clock()
-                # I don't know why the dataloader gives double tensors!
                 inputs = inputs.float()
                 labels = labels.float()
-                it = i*iter_per_epoch + j
+                #it = i*iter_per_epoch + j
+                it+=1
                 inputs = inputs.squeeze(dim=0)
                 labels = labels.squeeze(dim=0)
                 inputs = Variable(inputs)
@@ -207,58 +206,53 @@ class Solver(object):
                 if len(labels.size()) == 4:
                     labels = labels.view(labels.size(0)*labels.size(1), *labels.size()[2:])
                 loss = self.mdn_loss_function(*outputs, labels)
+                self.train_loss_history.append(loss.data.cpu().numpy())
                 print('[Iteration %i/%i] TRAIN loss: %f' % (it,nIterations,loss.data.cpu().numpy()))
                 toc=time.clock()
-                print('This iteration took', toc-tic, 'Seconds')
+                print('This iteration took (training)', toc-tic, 'Seconds')
                 optim.zero_grad()
                 loss.backward()
                 optim.step()
                 
                 if it%log_nth==0:
-                    
-                    self.train_loss_history.append(loss.data.cpu().numpy())
-
+                    tic = time.clock()
+                    model.eval()   #Set model state to evaluation 
                     train_NSS = self.NSS_score(*outputs, labels)
-                    train_NSS = np.mean(train_NSS.data.cpu().numpy())
+                    train_NSS = np.mean(train_NSS)
                     self.train_NSS_history.append(train_NSS)                    
 
                     # Validation set
                     #val_losses = []
                     #val_NSS_Scores = []
-                    model.eval()   #Set model state to evaluation 
                     
                     # Select random batch from the validation set:
                     rand_select = randint(1, len(val_loader))
                     for ii,(inputs, labels) in enumerate(val_loader, 1):
                         
+                        inputs, labels = Variable(inputs.float().squeeze(dim=0)),Variable(labels.float().squeeze(dim=0))
+
+                        if model.is_cuda:
+                            inputs, labels = inputs.cuda(), labels.cuda()
+
+                        outputs = model.forward(inputs)
+                        if len(labels.size()) == 4:
+                            labels = labels.view(labels.size(0)*labels.size(1), *labels.size()[2:])
+                        loss_val = self.mdn_loss_function(*outputs, labels)
+                        self.val_loss_history.append(loss_val.data.cpu().numpy())
                         if rand_select == ii:
-                        
-                            # I don't know why the dataloader gives double tensors!
-                            inputs, labels = Variable(inputs.float().squeeze(dim=0)),Variable(labels.float().squeeze(dim=0))
-
-                            if model.is_cuda:
-                                inputs, labels = inputs.cuda(), labels.cuda()
-
-                            outputs = model.forward(inputs)
-                            if len(labels.size()) == 4:
-                                labels = labels.view(labels.size(0)*labels.size(1), *labels.size()[2:])
-                            loss_val = self.mdn_loss_function(*outputs, labels)
-                            #val_losses.append(loss_val.data.cpu().numpy())
-
                             val_NSS = self.NSS_score(*outputs, labels)
                             #val_NSS_Scores.append(np.mean(val_NSS.data.cpu().numpy()))
-                            val_NSS = np.mean(val_NSS.data.cpu().numpy())
+                            val_NSS = np.mean(val_NSS)
                     
-                            #self.val_NSS_history.append(np.mean(val_NSS_Scores))
+                            self.val_NSS_history.append(np.mean(val_NSS))
                             self.val_NSS_history.append(val_NSS)
                             print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i+1, num_epochs, train_NSS, loss.data.cpu().numpy()))
                             print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i+1, num_epochs, val_NSS, loss_val.data.cpu().numpy()))
-                    
-                    #print('[Epoch %i/%i] TRAIN loss: %f' % (i+1, num_epochs, loss.data.cpu().numpy()))
-                    #print('[Epoch %i/%i] VAL loss: %f' % (i+1, num_epochs, loss_val.data.cpu().numpy()))
+                    toc=time.clock()
+                    print('This iteration took (validation)', toc-tic, 'Seconds')
                     
                     model.train() #Set model state to training
-                    
+            model.save('training_model.model')    #saves model after each epoch     
             if self.n_decay_epoch is not None:
                 optim = self.decay_lr(self, i, optim)
                         
