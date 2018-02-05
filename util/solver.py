@@ -154,10 +154,10 @@ class Solver(object):
         #print('fix_data_xy size:',fix_data_xy.shape)
         for i in range(N):
             mask[i,fix_data_xy[i,0,:],fix_data_xy[i,1,:]]+=1
-        mask[i,0,0]=0 #to remove the effect of zero fixations
+            mask[i,0,0]=0 #to remove the effect of zero fixations
         mask = torch.from_numpy(mask.astype(np.float32)).cuda()
         #print(mask.size(),sal_results.size())
-        NSS = torch.sum(sal_results*mask)/torch.sum(mask!=0)
+        NSS = torch.sum(sal_results*mask)/nTrueFix
         
 
         return NSS
@@ -252,6 +252,8 @@ class Solver(object):
                     print('This iteration took (validation)', toc-tic, 'Seconds')
                     
                     model.train() #Set model state to training
+                    
+            model.Epoch_num += 1
             model.save('training_model.model')    #saves model after each epoch     
             if self.n_decay_epoch is not None:
                 optim = self.decay_lr(self, i, optim)
