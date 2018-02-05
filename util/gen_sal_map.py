@@ -1,8 +1,7 @@
 from scipy.stats import multivariate_normal
 import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib
-from fixation_extraction import FixationLoader
+from util.fixation_extraction import FixationLoader
 
 def _gen_meshgrid(x_min=0, x_max=1, y_min=0, y_max=1, res=0.01):
 
@@ -86,48 +85,11 @@ def vid_sal_map(fix_coor): # has the frame in first dimension
 
     for ind, frame in enumerate(fix_coor):
         sal_map[ind, :, :] = frame_sal_map(frame)
-        print('Frame', ind, 'is done')
+        #print('Frame', ind, 'is done')
 
     print('=== Sliency map is computed for all frames ===')
     return sal_map
 
-def overlay_sal_map(img, sal_map):
-    
-	'''
-	INPUT: 
-		- image/frame  -> (X,Y,3)
-		- saleincy map -> (X,Y)
-		
-	OUTPUT:
-		- None
-	'''
-	
-    cdict = {'red':   [(0.0,  0.0, 0.0),
-                       (0.5,  0.0, 0.5),
-                       (1.0,  1.0, 1.0)],
-
-             'green': [(0.0,  0.0, 0.0),
-                       (0.25, 0.0, 0.0),
-                       (0.5,  1.0, 1.0),
-                       (1.0,  0.0, 1.0)],
-
-             'blue':  [(0.0,  0.0, 1.0),
-                       (0.5,  0.0, 0.0),
-                       (1.0,  0.0, 0.0)],
-
-             'alpha':  [(0.0,  0.0, 0.0),
-                       (0.6,  0.6, 0.6),  # change these values if you want to change alpha values!
-                       (1.0,  0.6, 0.6)]} # change these values if you want to change alpha values!
-    
-    my_cmap = matplotlib.colors.LinearSegmentedColormap('my_colormap',cdict,256)
-    
-    plt.imshow(img)
-    plt.imshow(sal_map, cmap=my_cmap)
-    plt.axes().set_aspect('equal')
-    plt.xticks([])
-    plt.yticks([])
-    plt.show()
-	
 
 if __name__ == '__main__':
 	
@@ -140,4 +102,4 @@ if __name__ == '__main__':
 		
 		plt.pcolor(i[:, :], cmap='gray')
 		plt.axes().set_aspect('equal')
-		plt.show()
+    plt.show()
