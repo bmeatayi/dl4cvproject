@@ -252,6 +252,8 @@ class Solver(object):
                     print('This iteration took (validation)', toc-tic, 'Seconds')
                     
                     model.train() #Set model state to training
+                    
+            model.Epoch_num += 1
             model.save('training_model.model')    #saves model after each epoch     
             if self.n_decay_epoch is not None:
                 optim = self.decay_lr(self, i, optim)
