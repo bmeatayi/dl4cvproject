@@ -154,10 +154,10 @@ class Solver(object):
         #print('fix_data_xy size:',fix_data_xy.shape)
         for i in range(N):
             mask[i,fix_data_xy[i,0,:],fix_data_xy[i,1,:]]+=1
-        mask[i,0,0]=0 #to remove the effect of zero fixations
+            mask[i,0,0]=0 #to remove the effect of zero fixations
         mask = torch.from_numpy(mask.astype(np.float32)).cuda()
         #print(mask.size(),sal_results.size())
-        NSS = torch.sum(sal_results*mask)/torch.sum(mask!=0)
+        NSS = torch.sum(sal_results*mask)/nTrueFix
         
 
         return NSS
