@@ -102,4 +102,4 @@ if __name__ == '__main__':
 		
 		plt.pcolor(i[:, :], cmap='gray')
 		plt.axes().set_aspect('equal')
-		plt.show()
+    plt.show()
