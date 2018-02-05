@@ -1,7 +1,7 @@
 from scipy.stats import multivariate_normal
 import matplotlib.pyplot as plt
 import numpy as np
-from fixation_extraction import FixationLoader
+from util.fixation_extraction import FixationLoader
 
 def _gen_meshgrid(x_min=0, x_max=1, y_min=0, y_max=1, res=0.01):
 
@@ -85,7 +85,7 @@ def vid_sal_map(fix_coor): # has the frame in first dimension
 
     for ind, frame in enumerate(fix_coor):
         sal_map[ind, :, :] = frame_sal_map(frame)
-        print('Frame', ind, 'is done')
+        #print('Frame', ind, 'is done')
 
     print('=== Sliency map is computed for all frames ===')
     return sal_map

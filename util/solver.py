@@ -8,6 +8,8 @@ import math
 from random import *
 import time
 
+from util.KLDiv_measure import KLDiv
+
 
 class Solver(object):
 
@@ -16,7 +18,8 @@ class Solver(object):
         "eps": 1e-8,
         "weight_decay": 0.0}
 
-    def __init__(self, optim=torch.optim.Adam, optim_args={}):
+    def __init__(self, optim=torch.optim.Adam, optim_args={}, eval_measure='NSS'):
+        
         optim_args_merged = self.default_adam_args.copy()
         optim_args_merged.update(optim_args)
         self.optim_args = optim_args_merged
@@ -24,6 +27,7 @@ class Solver(object):
         self.init_lr = self.optim_args['lr']
         self.oneDivSqrtTwoPI = 1.0 / math.sqrt(2.0*math.pi) # normalisation factor for gaussian.
         self.oneDivTwoPI = 1.0 / (2.0*math.pi)
+        self.eval_measure = eval_measure
         
         self._reset_histories()
 
@@ -32,8 +36,8 @@ class Solver(object):
         Resets train and val histories for the NSS and the loss.
         """
         self.train_loss_history = []
-        self.train_NSS_history = []
-        self.val_NSS_history = []
+        self.train_Eval_history = []
+        self.val_Eval_history = []
         self.val_loss_history = []
         
 
@@ -216,10 +220,19 @@ class Solver(object):
                 
                 if it%log_nth==0:
                     tic = time.clock()
-                    model.eval()   #Set model state to evaluation 
-                    train_NSS = self.NSS_score(*outputs, labels)
-                    train_NSS = np.mean(train_NSS)
-                    self.train_NSS_history.append(train_NSS)                    
+                    model.eval()   #Set model state to evaluation
+                    
+                    if self.eval_measure=='NSS':
+                        train_NSS = self.NSS_score(*outputs, labels)
+                        train_NSS = np.mean(train_NSS)
+                        self.train_Eval_history.append(train_NSS)   
+                        train_EvalM = train_NSS
+                    else:
+                        train_KLD = KLDiv(outputs, labels)
+                        self.train_Eval_history.append(train_KLD)
+                        train_EvalM = train_KLD
+                        
+                    
 
                     # Validation set
                     #val_losses = []
@@ -240,14 +253,19 @@ class Solver(object):
                         loss_val = self.mdn_loss_function(*outputs, labels)
                         self.val_loss_history.append(loss_val.data.cpu().numpy())
                         if rand_select == ii:
-                            val_NSS = self.NSS_score(*outputs, labels)
-                            #val_NSS_Scores.append(np.mean(val_NSS.data.cpu().numpy()))
-                            val_NSS = np.mean(val_NSS)
-                    
-                            self.val_NSS_history.append(np.mean(val_NSS))
-                            self.val_NSS_history.append(val_NSS)
-                            print('[Epoch %i/%i] TRAIN NSS/loss: %f/%f' % (i+1, num_epochs, train_NSS, loss.data.cpu().numpy()))
-                            print('[Epoch %i/%i] VAL NSS/loss: %f/%f' % (i+1, num_epochs, val_NSS, loss_val.data.cpu().numpy()))
+                            
+                            if self.eval_measure=='NSS':
+                                val_NSS = self.NSS_score(*outputs, labels)
+                                val_NSS = np.mean(val_NSS)
+                                self.train_Eval_history.append(val_NSS)   
+                                train_EvalM = val_NSS
+                            else:
+                                val_KLD = KLDiv(outputs, labels)
+                                self.val_Eval_history.append(val_KLD)
+                                val_EvalM = val_KLD
+                                
+                            print('[Epoch %i/%i] TRAIN KLD/loss: %f/%f' % (i+1, num_epochs, train_EvalM, loss.data.cpu().numpy()))
+                            print('[Epoch %i/%i] VAL KLD/loss: %f/%f' % (i+1, num_epochs, val_EvalM, loss_val.data.cpu().numpy()))
                     toc=time.clock()
                     print('This iteration took (validation)', toc-tic, 'Seconds')
                     
